@@ -38,7 +38,7 @@ def generate_story(prompt, choice):
         temperature=0.7,
     )
     
-    story = response.choices[0].message['content'].strip()
+    story = response['choices'][0]['message']['content'].strip()  # Updated access method
     return story
 
 def convert_to_pdf(story_parts):
@@ -137,5 +137,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
