@@ -1,9 +1,11 @@
-import streamlit as st
 import openai
+import streamlit as st
 from fpdf import FPDF
 import base64
 from gtts import gTTS
 import os
+from PIL import Image
+import io
 
 # Function to set the OpenAI API key
 def set_openai_key():
@@ -14,32 +16,98 @@ def set_openai_key():
         st.session_state.api_key = api_key
         st.sidebar.success("API Key set successfully!")
 
-# Define the prompt template for story generation with theme
-def get_prompt_for_theme(base_story, choice, theme):
-    # Add the theme into the prompt
-    theme_based_prompt = f"Generate a story with the theme of {theme}.\n\n"
-    theme_based_prompt += f"The story starts with: {base_story}\n"
-    theme_based_prompt += f"The user makes a choice: {choice}\n"
-    theme_based_prompt += "Continue the story based on the theme and choice."
+# Function to add multiple characters
+def add_multiple_characters():
+    st.sidebar.header("👤 Add Characters (Max 10)")
+    
+    if "characters" not in st.session_state:
+        st.session_state.characters = []
 
-    return theme_based_prompt
+    # Allow user to add a new character until there are 10 characters
+    if len(st.session_state.characters) < 10:
+        name = st.text_input(f"Character {len(st.session_state.characters) + 1} Name", key=f"name{len(st.session_state.characters)}")
+        personality = st.selectbox(f"Character {len(st.session_state.characters) + 1} Personality", 
+                                   ["Brave", "Clever", "Shy", "Aggressive", "Wise"], key=f"personality{len(st.session_state.characters)}")
+        appearance = st.text_input(f"Character {len(st.session_state.characters) + 1} Appearance", 
+                                   value="A tall man with brown hair and green eyes.", key=f"appearance{len(st.session_state.characters)}")
 
-def generate_story(base_story, choice, theme):
-    prompt = get_prompt_for_theme(base_story, choice, theme)
+        if st.button(f"Add Character {len(st.session_state.characters) + 1}"):
+            if name:
+                character = {"name": name, "personality": personality, "appearance": appearance}
+                st.session_state.characters.append(character)
+                st.success(f"Character {name} added!")
+            else:
+                st.warning("Please enter a character name.")
+
+    else:
+        st.info("You have reached the maximum of 10 characters.")
+
+# Define the prompt template for story generation
+prompt_template = """
+You are the narrator of an interactive story. The story starts with:
+
+{start}
+
+The user makes a choice: {choice}
+
+Based on this choice, continue the story in a creative way:
+"""
+
+# Function to generate the story
+def generate_story_with_characters(characters, theme, prompt, choice):
+    # Adding the characters to the prompt
+    characters_description = ""
+    for character in characters:
+        characters_description += f"Your character is {character['name']}, who is {character['personality']} and has {character['appearance']}.\n"
+    
+    formatted_prompt = f"Theme: {theme}. {characters_description} {prompt_template.format(start=prompt, choice=choice)}"
 
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt}
+            {"role": "user", "content": formatted_prompt}
         ],
         max_tokens=900,
         temperature=0.7,
     )
-    
+
     story = response['choices'][0]['message']['content'].strip()
     return story
 
+# Function to summarize the prompt to reduce token count
+def summarize_text(text):
+    summarization_prompt = f"Please summarize the following text to stay under 800 tokens while maintaining its main idea:\n\n{text}"
+    
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": summarization_prompt}
+        ],
+        max_tokens=300,
+        temperature=0.7,
+    )
+    
+    summarized_text = response['choices'][0]['message']['content'].strip()
+    return summarized_text
+
+# Function to generate an image using OpenAI's DALL·E
+def generate_image_from_story(story_text):
+    # Summarize the story before passing it to DALL·E
+    summarized_story = summarize_text(story_text)
+    
+    # Use DALL·E to generate an image based on the summarized story
+    response = openai.Image.create(
+        prompt=summarized_story,
+        n=1,
+        size="1024x1024"
+    )
+    
+    image_url = response['data'][0]['url']
+    return image_url
+
+# Function to convert story to PDF
 def convert_to_pdf(story_parts):
     pdf = FPDF()
     pdf.add_page()
@@ -51,21 +119,31 @@ def convert_to_pdf(story_parts):
 
     return pdf
 
+# Function to convert story to audio
 def convert_to_audio(story, language='en'):
     tts = gTTS(text=story, lang=language, slow=False)
     audio_file = "story_audio.mp3"
     tts.save(audio_file)
     return audio_file
 
+# Main function
 def main():
     st.title("🌟 Interactive Storytelling App")
 
     # Set OpenAI API key from user input
     set_openai_key()
-    
+
     if not st.session_state.get("api_key"):
         st.warning("Please enter your OpenAI API key in the sidebar to start.")
         return
+
+    # Add multiple characters
+    add_multiple_characters()
+
+    # Theme selection
+    st.sidebar.header("📝 Choose Your Story Theme")
+    theme_options = ["Fantasy", "Mystery", "Adventure", "Sci-Fi", "Horror", "Romance"]
+    selected_theme = st.selectbox("Select Story Theme", theme_options)
 
     if "story" not in st.session_state:
         st.session_state.story = []
@@ -74,17 +152,12 @@ def main():
 
     with st.sidebar:
         st.header("Story Settings")
-        
-        # Add a dropdown to choose the story theme
-        theme = st.selectbox("Choose a Story Theme", ["Adventure", "Romance", "Mystery", "Sci-Fi", "Fantasy"])
-        
         base_story = st.text_area("📝 Base Story Idea", height=150, help="Enter the idea that will kickstart your story.")
         if st.button("🎬 Start Story"):
             if base_story.strip():
                 st.session_state.story = [base_story]
                 st.session_state.started = True
                 st.session_state.stopped = False
-                st.session_state.theme = theme
                 st.success("Story started successfully!")
             else:
                 st.error("Please enter a base story idea to start.")
@@ -100,18 +173,27 @@ def main():
             with col1:
                 if st.button("Continue Story"):
                     if user_choice:
-                        new_story = generate_story(" ".join(st.session_state.story), user_choice, st.session_state.theme)
+                        new_story = generate_story_with_characters(st.session_state.characters, selected_theme, " ".join(st.session_state.story), user_choice)
                         st.session_state.story.append(new_story)
                         st.success("Story continued!")
+                        
+                        # Generate image based on the current story
+                        # Generate image based on the current story
+                        image_url = generate_image_from_story(new_story)
+                        st.image(image_url, caption="Story Visual", use_container_width=True)  # Use 'use_container_width' instead of 'use_column_width'
                     else:
                         st.warning("Please enter a choice to continue the story.")
             
             with col2:
                 if st.button("Continue Automatically"):
                     last_part = st.session_state.story[-1] if st.session_state.story else ""
-                    new_story = generate_story(" ".join(st.session_state.story), last_part, st.session_state.theme)
+                    new_story = generate_story_with_characters(st.session_state.characters, selected_theme, " ".join(st.session_state.story), last_part)
                     st.session_state.story.append(new_story)
                     st.success("Story continued automatically!")
+                    
+                    # Generate image based on the current story
+                    image_url = generate_image_from_story(new_story)
+                    st.image(image_url, caption="Story Visual", use_column_width=True)
             
             with col3:
                 if st.button("⛔ Stop Story"):
