@@ -18,27 +18,45 @@ from models import (
 )
 from story_manager import story_manager
 from llm_service import initialize_llm_service
-import llm_service
-from story_workflow import story_workflow
 from export_services import pdf_service, audio_service
+
+# Global LLM service instance
+llm_service_instance = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    print("🚀 Starting Interactive Storytelling API...")
+    
+    # Check for API key
     groq_api_key = os.getenv("GROQ_API_KEY")
     if not groq_api_key:
-        print("⚠️  Warning: GROQ_API_KEY environment variable not set.")
-        print("   🔄 Using Mock LLM Service for development/testing.")
-        print("   ℹ️  Get your API key from: https://console.groq.com/keys")
-        initialize_llm_service(None)  # Will use mock service
-    else:
-        try:
-            initialize_llm_service(groq_api_key)
-            print("✅ LLM service initialized successfully with Groq API")
-        except Exception as e:
-            print(f"❌ Failed to initialize LLM service: {e}")
-            print("🔄 Falling back to Mock LLM Service")
-            initialize_llm_service(None)  # Fallback to mock
+        print("❌ GROQ_API_KEY environment variable is not set!")
+        print("Please set your Groq API key:")
+        print("export GROQ_API_KEY='your_api_key_here'")
+        raise ValueError("GROQ_API_KEY is required")
+    
+    print(f"🔍 GROQ_API_KEY found: {groq_api_key[:10]}...")
+    
+    # Initialize the LLM service
+    try:
+        global llm_service_instance
+        llm_service_instance = initialize_llm_service()
+        print(f"✅ LLM service ready: {type(llm_service_instance).__name__}")
+        
+        # Test the service
+        from models import Character, PersonalityType
+        test_char = Character(
+            name="TestChar", 
+            primary_trait=PersonalityType.BRAVE, 
+            appearance="Test appearance"
+        )
+        test_result = llm_service_instance.generate_character_backstory(test_char)
+        print("🧪 LLM service test successful")
+        
+    except Exception as e:
+        print(f"❌ Failed to initialize LLM service: {e}")
+        raise e
     
     yield
     # Shutdown
@@ -49,14 +67,6 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
-
-# Initialize LLM service on startup
-# @app.on_event("startup")
-# async def startup_event():
-#     groq_api_key = os.getenv("GROQ_API_KEY")
-#     if not groq_api_key:
-#         raise ValueError("GROQ_API_KEY environment variable is required")
-#     initialize_llm_service(groq_api_key)
 
 # Character Management Endpoints
 @app.post("/characters/", response_model=dict)
@@ -72,7 +82,10 @@ async def create_character(character: Character):
 async def generate_character_backstory(character: Character):
     """Generate backstory for a character"""
     try:
-        backstory = llm_service.llm_service.generate_character_backstory(character)
+        if llm_service_instance is None:
+            raise HTTPException(status_code=500, detail="LLM service not initialized")
+        
+        backstory = llm_service_instance.generate_character_backstory(character)
         character.backstory = backstory
         return {
             "success": True,
@@ -80,7 +93,10 @@ async def generate_character_backstory(character: Character):
             "backstory": backstory,
             "message": "Backstory generated successfully"
         }
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"Backstory generation error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Story Management Endpoints
@@ -144,21 +160,35 @@ async def generate_story_segment(request: StoryGenerationRequest):
         if not story:
             raise HTTPException(status_code=404, detail="Story not found")
         
-        # Use workflow to generate content
-        result = story_workflow.generate_story_segment(
-            story_id=request.story_id,
-            theme=request.theme,
-            characters=request.characters,
-            previous_content=request.previous_content,
-            user_choice=request.user_choice,
-            auto_continue=request.auto_continue
-        )
+        if llm_service_instance is None:
+            raise HTTPException(status_code=500, detail="LLM service not initialized")
         
-        if not result["success"]:
-            raise HTTPException(status_code=500, detail=result.get("error", "Generation failed"))
-        
-        # Add segment to story
-        new_segment = story_manager.add_segment(request.story_id, result["content"])
+        # Generate content directly using LLM service (bypassing problematic workflow)
+        try:
+            # Generate story content directly
+            if request.auto_continue:
+                content = llm_service_instance.generate_story_continuation(
+                    theme=request.theme,
+                    characters=request.characters,
+                    previous_content=request.previous_content,
+                    user_choice=None,
+                    auto_continue=True
+                )
+            else:
+                content = llm_service_instance.generate_story_continuation(
+                    theme=request.theme,
+                    characters=request.characters,
+                    previous_content=request.previous_content,
+                    user_choice=request.user_choice,
+                    auto_continue=False
+                )
+            
+            # Add segment to story
+            new_segment = story_manager.add_segment(request.story_id, content)
+            
+        except Exception as generation_error:
+            print(f"Generation error: {generation_error}")
+            raise HTTPException(status_code=500, detail=f"Generation failed: {str(generation_error)}")
         
         return StoryResponse(
             success=True,
@@ -170,6 +200,7 @@ async def generate_story_segment(request: StoryGenerationRequest):
     except HTTPException:
         raise
     except Exception as e:
+        print(f"Story generation error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Story Editing Endpoints
@@ -182,35 +213,39 @@ async def edit_story_segment(request: StoryEditRequest):
         if not segment:
             raise HTTPException(status_code=404, detail="Segment not found")
         
+        if llm_service_instance is None:
+            raise HTTPException(status_code=500, detail="LLM service not initialized")
+        
         # Get context for editing
         context = story_manager.get_context_for_segment(request.story_id, request.segment_id)
         
-        # Use workflow to edit content
-        result = story_workflow.edit_story_segment(
-            story_id=request.story_id,
-            current_segment=request.original_content,
-            edit_instruction=request.edit_instruction,
-            context=context,
-            characters=request.characters
-        )
-        
-        if not result["success"]:
-            raise HTTPException(status_code=500, detail=result.get("error", "Edit failed"))
-        
-        # Update segment in story
-        success = story_manager.edit_segment(
-            request.story_id, 
-            request.segment_id, 
-            result["edited_content"]
-        )
-        
-        if not success:
-            raise HTTPException(status_code=500, detail="Failed to update segment")
+        # Edit content directly using LLM service (bypassing problematic workflow)
+        try:
+            edited_content = llm_service_instance.edit_story_segment(
+                original_content=request.original_content,
+                edit_instruction=request.edit_instruction,
+                context=context,
+                characters=request.characters
+            )
+            
+            # Update segment in story
+            success = story_manager.edit_segment(
+                request.story_id, 
+                request.segment_id, 
+                edited_content
+            )
+            
+            if not success:
+                raise HTTPException(status_code=500, detail="Failed to update segment")
+            
+        except Exception as edit_error:
+            print(f"Edit error: {edit_error}")
+            raise HTTPException(status_code=500, detail=f"Edit failed: {str(edit_error)}")
         
         return EditResponse(
             success=True,
-            original_content=result["original_content"],
-            edited_content=result["edited_content"],
+            original_content=request.original_content,
+            edited_content=edited_content,
             segment_id=request.segment_id,
             message="Segment edited successfully"
         )
@@ -218,6 +253,7 @@ async def edit_story_segment(request: StoryEditRequest):
     except HTTPException:
         raise
     except Exception as e:
+        print(f"Story edit error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Export Endpoints
@@ -237,6 +273,7 @@ async def export_story_to_pdf(story_id: str):
             headers={"Content-Disposition": f"attachment; filename=story_{story_id}.pdf"}
         )
     except Exception as e:
+        print(f"PDF export error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
 
 @app.post("/stories/{story_id}/export/pdf/base64/")
@@ -254,6 +291,7 @@ async def export_story_to_pdf_base64(story_id: str):
             "filename": f"story_{story_id}.pdf"
         }
     except Exception as e:
+        print(f"PDF base64 export error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
 
 @app.post("/stories/{story_id}/export/audio/")
@@ -317,14 +355,18 @@ async def list_stories():
         "stories": list(story_manager.stories.keys()),
         "count": len(story_manager.stories)
     }
+
 @app.get("/debug/llm/")
 async def debug_llm_service():
     """Debug LLM service status"""
     return {
-        "llm_service_type": type(llm_service.llm_service).__name__ if llm_service.llm_service else "None",
-        "llm_service_is_none": llm_service.llm_service is None,
-        "has_generate_method": hasattr(llm_service.llm_service, 'generate_character_backstory') if llm_service.llm_service else False
+        "llm_service_type": type(llm_service_instance).__name__ if llm_service_instance else "None",
+        "llm_service_is_none": llm_service_instance is None,
+        "has_generate_method": hasattr(llm_service_instance, 'generate_character_backstory') if llm_service_instance else False,
+        "groq_api_key_set": bool(os.getenv("GROQ_API_KEY"))
     }
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

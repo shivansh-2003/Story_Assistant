@@ -1,7 +1,6 @@
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
 from typing import List, Dict, Any
 import os
 from models import Character, StoryTheme
@@ -9,72 +8,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-class MockLLMService:
-    """Mock LLM service for development/testing when GROQ_API_KEY is not available"""
-    
-    def __init__(self):
-        pass
-        
-    def generate_story_continuation(self, 
-                                 theme: StoryTheme,
-                                 characters: List[Character],
-                                 previous_content: str,
-                                 user_choice: str = None,
-                                 auto_continue: bool = False) -> str:
-        """Generate mock story continuation"""
-        char_names = [char.name for char in characters[:2]]  # Use first 2 characters
-        
-        if user_choice:
-            return f"""Following the user's choice: "{user_choice}"
-            
-{char_names[0] if char_names else 'The protagonist'} decided to take action. The {theme.value} adventure continued as they faced new challenges in this mystical world. {"With " + char_names[1] if len(char_names) > 1 else "Alone"}, they ventured forward into the unknown.
-
-The air was thick with magic and mystery. Every step brought new discoveries and dangers. This was just the beginning of an epic tale that would test their courage and determination.
-
-[This is mock content - set GROQ_API_KEY environment variable for AI-generated content]"""
-        else:
-            return f"""The {theme.value} story continues automatically...
-
-{char_names[0] if char_names else 'The hero'} found themselves in a crucial moment. The world around them seemed to hold its breath as important decisions loomed ahead. 
-
-{"Together with " + char_names[1] + ", they" if len(char_names) > 1 else "They"} knew that their next actions would shape the destiny of everyone they cared about.
-
-[This is mock content - set GROQ_API_KEY environment variable for AI-generated content]"""
-    
-    def edit_story_segment(self,
-                          original_content: str,
-                          edit_instruction: str,
-                          context: str = "",
-                          characters: List[Character] = None) -> str:
-        """Edit story segment with mock response"""
-        return f"""[EDITED] {original_content}
-
---- EDIT APPLIED ---
-Edit instruction: {edit_instruction}
-
-The content has been enhanced with more dramatic tension and character development. 
-
-[This is mock edited content - set GROQ_API_KEY environment variable for AI-generated content]"""
-    
-    def generate_character_backstory(self, character: Character) -> str:
-        """Generate mock character backstory"""
-        return f"""{character.name} was born in a small village where {character.primary_trait.value} individuals were highly respected. From a young age, they showed exceptional talent in their chosen path.
-
-Their {character.appearance.lower()} made them stand out among their peers. {"At " + str(character.age) + " years old, " if character.age else ""}they have dedicated their life to {character.occupation or "their calling"}.
-
-{"Driven by " + character.motivation + ", " if character.motivation else ""}{character.name} continues to grow stronger each day, though they struggle with their tendency toward being {character.fatal_flaw or "overly cautious"}.
-
-[This is mock backstory - set GROQ_API_KEY environment variable for AI-generated content]"""
-
 class LLMService:
     def __init__(self, groq_api_key: str):
+        if not groq_api_key:
+            raise ValueError("GROQ_API_KEY is required")
+        
+        print(f"🚀 Initializing LLM Service with API key: {groq_api_key[:10]}...")
+        
         self.llm = ChatGroq(
             groq_api_key=groq_api_key,
-            model_name="llama-3.1-70b-versatile",
+            model_name="llama-3.1-8b-instant",
             temperature=0.7,
             max_tokens=1000
         )
         self.output_parser = StrOutputParser()
+        print("✅ LLM Service initialized successfully")
         
     def _format_characters(self, characters: List[Character]) -> str:
         """Format characters for prompt"""
@@ -226,34 +174,14 @@ Generate a compelling backstory (150-200 words) that explains how this character
         })
         
         return result.strip()
+
+def initialize_llm_service():
+    """Initialize the LLM service with Groq API key"""
+    groq_api_key = os.getenv("GROQ_API_KEY")
+    if not groq_api_key:
+        raise ValueError("GROQ_API_KEY environment variable must be set")
     
-    def summarize_for_image(self, story_content: str) -> str:
-        """Summarize story content for image generation"""
-        
-        prompt_template = ChatPromptTemplate.from_messages([
-            ("system", "Summarize story content into a clear visual description suitable for image generation."),
-            ("human", """Story Content:
-{content}
-
-Create a concise visual summary (50-100 words) focusing on:
-- Key characters and their appearance
-- Setting and atmosphere
-- Main action or scene
-- Visual elements that would make a compelling image""")
-        ])
-        
-        chain = prompt_template | self.llm | self.output_parser
-        
-        result = chain.invoke({"content": story_content})
-        return result.strip()
-
-# Initialize LLM service (will be set in FastAPI startup)
-llm_service = None
-
-def initialize_llm_service(groq_api_key: str):
-    global llm_service
-    if groq_api_key and groq_api_key != "your_groq_api_key_here":
-        llm_service = LLMService(groq_api_key)
-    else:
-        print("🔄 Using Mock LLM Service for development (set GROQ_API_KEY for AI features)")
-        llm_service = MockLLMService()
+    print(f"🔧 Initializing LLM service...")
+    service = LLMService(groq_api_key)
+    print(f"✅ LLM service initialized: {type(service).__name__}")
+    return service
