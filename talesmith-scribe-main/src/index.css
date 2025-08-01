@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Interactive Storytelling Platform Design System */
+/* All colors MUST be HSL for consistency and theming */
+
+@layer base {
+  :root {
+    /* Core storytelling palette - deep blues and purples */
+    --background: 222 47% 5%;
+    --foreground: 210 100% 98%;
+
+    /* Card and surface colors */
+    --card: 222 47% 7%;
+    --card-foreground: 210 100% 98%;
+
+    --popover: 222 47% 8%;
+    --popover-foreground: 210 100% 98%;
+
+    /* Primary storytelling colors - magical deep blue */
+    --primary: 230 85% 60%;
+    --primary-foreground: 222 47% 5%;
+    --primary-glow: 230 85% 70%;
+
+    /* Secondary - elegant gold for accents */
+    --secondary: 43 100% 65%;
+    --secondary-foreground: 222 47% 5%;
+    --secondary-glow: 43 100% 75%;
+
+    /* Muted storytelling tones */
+    --muted: 222 47% 12%;
+    --muted-foreground: 215 25% 65%;
+
+    /* Accent - mystical purple */
+    --accent: 270 85% 65%;
+    --accent-foreground: 222 47% 5%;
+
+    /* Destructive */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 100% 98%;
+
+    /* Borders and inputs */
+    --border: 222 47% 15%;
+    --input: 222 47% 12%;
+    --ring: 230 85% 60%;
+
+    /* Storytelling gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(230 85% 60%), hsl(270 85% 65%));
+    --gradient-secondary: linear-gradient(135deg, hsl(43 100% 65%), hsl(35 100% 70%));
+    --gradient-mystical: linear-gradient(135deg, hsl(230 85% 60%), hsl(270 85% 65%), hsl(300 85% 60%));
+    --gradient-atmospheric: linear-gradient(180deg, hsl(222 47% 5%), hsl(222 47% 8%));
+    
+    /* Story genre gradients */
+    --gradient-fantasy: linear-gradient(135deg, hsl(270 85% 65%), hsl(300 85% 60%));
+    --gradient-mystery: linear-gradient(135deg, hsl(222 47% 15%), hsl(0 0% 25%));
+    --gradient-adventure: linear-gradient(135deg, hsl(35 100% 70%), hsl(25 100% 65%));
+    --gradient-romance: linear-gradient(135deg, hsl(320 85% 70%), hsl(340 85% 75%));
+
+    /* Shadows and glows */
+    --shadow-elegant: 0 10px 30px -10px hsl(230 85% 60% / 0.3);
+    --shadow-mystical: 0 0 40px hsl(270 85% 65% / 0.4);
+    --shadow-golden: 0 5px 20px hsl(43 100% 65% / 0.3);
+    --shadow-deep: 0 20px 60px -20px hsl(222 47% 5% / 0.8);
+
+    /* Typography and spacing */
+    --font-serif: 'Playfair Display', 'Georgia', serif;
+    --font-sans: 'Inter', 'Helvetica Neue', sans-serif;
+    
+    /* Animation curves */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    --transition-mystical: all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  /* Light mode overrides for storytelling theme */
+  .light {
+    --background: 210 100% 98%;
+    --foreground: 222 47% 15%;
+    
+    --card: 210 100% 100%;
+    --card-foreground: 222 47% 15%;
+    
+    --primary: 230 85% 55%;
+    --secondary: 43 100% 60%;
+    --accent: 270 85% 60%;
+    
+    --muted: 210 100% 95%;
+    --muted-foreground: 215 25% 45%;
+    
+    --border: 210 100% 90%;
+    --input: 210 100% 95%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
