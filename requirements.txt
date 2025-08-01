@@ -1,4 +1,11 @@
-streamlit
-openai==0.28
-fpdf
+fastapi
+uvicorn
+pydantic
+langchain
+langchain-groq
+langgraph
+fpdf2
 gtts
+python-multipart
+typing-extensions
+python-dotenv
