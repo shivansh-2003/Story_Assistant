@@ -6,8 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sparkles, BookOpen, Users, FileText, Palette, Brain, Wand2, Star, Heart, Sword, Crown, Loader2, Trash2 } from 'lucide-react';
 import HealthCheck from '@/components/HealthCheck';
 import testApiConnection from '@/utils/apiTest';
-import { storyAPI, characterAPI, Story } from '@/lib/api';
-import { PDFExportDialog } from './PDFExportDialog';
+import { storyAPI, Story } from '@/lib/api';
 
 interface StoryProject {
   id: string;
@@ -25,14 +24,11 @@ const StorytellingDashboard = () => {
   const navigate = useNavigate();
   const [stories, setStories] = useState<Story[]>([]);
   const [loadingStories, setLoadingStories] = useState(true);
-  const [showPDFDialog, setShowPDFDialog] = useState(false);
-  const [allCharacters, setAllCharacters] = useState<any[]>([]);
   const [deletingStoryId, setDeletingStoryId] = useState<string | null>(null);
 
-  // Load stories and characters on component mount
+  // Load stories on component mount
   useEffect(() => {
     loadStories();
-    loadCharacters();
   }, []);
 
   const loadStories = async () => {
@@ -52,15 +48,7 @@ const StorytellingDashboard = () => {
     }
   };
 
-  const loadCharacters = async () => {
-    try {
-      const response = await characterAPI.getAll();
-      setAllCharacters(response.characters || []);
-    } catch (error) {
-      console.error('Failed to load characters:', error);
-      setAllCharacters([]);
-    }
-  };
+
 
   const deleteStory = async (storyId: string) => {
     try {
@@ -171,9 +159,14 @@ const StorytellingDashboard = () => {
                 <Wand2 className="w-5 h-5 mr-2" />
                 Create New Story
               </Button>
-              <Button variant="outline" size="lg" className="backdrop-blur-sm">
-                <Brain className="w-5 h-5 mr-2" />
-                AI Writing Assistant
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="backdrop-blur-sm"
+                onClick={() => navigate('/characters')}
+              >
+                <Users className="w-5 h-5 mr-2" />
+                Create Character
               </Button>
             </div>
           </div>
@@ -208,14 +201,11 @@ const StorytellingDashboard = () => {
             </CardContent>
           </Card>
           
-          <Card 
-            className="bg-card/50 backdrop-blur-sm border-accent/20 hover:shadow-mystical transition-all duration-300 hover:scale-105 cursor-pointer"
-            onClick={() => setShowPDFDialog(true)}
-          >
+          <Card className="bg-card/50 backdrop-blur-sm border-accent/20 hover:shadow-mystical transition-all duration-300 hover:scale-105">
             <CardContent className="p-6 text-center">
-              <Palette className="w-12 h-12 text-accent mx-auto mb-4" />
-              <h3 className="font-semibold font-sans">PDF Designer</h3>
-              <p className="text-sm text-muted-foreground">Beautiful custom exports</p>
+              <FileText className="w-12 h-12 text-accent mx-auto mb-4" />
+              <h3 className="font-semibold font-sans">Export Stories</h3>
+              <p className="text-sm text-muted-foreground">Professional PDF exports</p>
             </CardContent>
           </Card>
           
@@ -368,20 +358,26 @@ const StorytellingDashboard = () => {
           <Card className="bg-gradient-adventure/10 backdrop-blur-sm border-secondary/30">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2 font-serif">
-                <Palette className="w-6 h-6 text-secondary" />
-                <span>Custom PDF Design</span>
+                <FileText className="w-6 h-6 text-secondary" />
+                <span>Interactive Story Editor</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground mb-4">
-                Transform your stories into beautifully designed PDFs with professional layouts and typography.
+                Write with real-time chapter management, character tracking, and seamless AI integration for enhanced storytelling.
               </p>
               <Button 
                 variant="adventure" 
                 size="sm"
-                onClick={() => setShowPDFDialog(true)}
+                onClick={() => {
+                  if (stories.length > 0) {
+                    navigate(`/story/${stories[0].id}`);
+                  } else {
+                    navigate('/create-story');
+                  }
+                }}
               >
-                Design PDFs
+                Start Writing
               </Button>
             </CardContent>
           </Card>
@@ -415,20 +411,7 @@ const StorytellingDashboard = () => {
         </div>
       </div>
 
-      {/* PDF Export Dialog */}
-      <PDFExportDialog
-        open={showPDFDialog}
-        onOpenChange={setShowPDFDialog}
-        characters={allCharacters}
-        relationships={[]}
-        story={stories.length > 0 ? {
-          title: 'All Stories Collection',
-          genre: 'mixed',
-          description: 'A collection of your stories',
-          chapters: []
-        } : null}
-        exportType="all"
-      />
+
     </div>
   );
 };

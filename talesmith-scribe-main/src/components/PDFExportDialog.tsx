@@ -71,7 +71,15 @@ export const PDFExportDialog = ({
     includeRelationships: true,
     includeCharacters: true,
     colorScheme: 'default',
-    selectedCharacterIds: [] as string[]
+    selectedCharacterIds: [] as string[],
+    fontSize: 'medium',
+    fontFamily: 'default',
+    pageSize: 'A4',
+    includeImages: true,
+    includeTitlePage: true,
+    includeTableOfContents: true,
+    lineSpacing: 'normal',
+    marginSize: 'normal'
   });
 
   const templates = [
@@ -99,7 +107,37 @@ export const PDFExportDialog = ({
     { id: 'default', name: 'Indigo Blue', primary: '#4f46e5' },
     { id: 'emerald', name: 'Emerald Green', primary: '#059669' },
     { id: 'rose', name: 'Rose Pink', primary: '#e11d48' },
-    { id: 'amber', name: 'Amber Gold', primary: '#d97706' }
+    { id: 'amber', name: 'Amber Gold', primary: '#d97706' },
+    { id: 'purple', name: 'Royal Purple', primary: '#7c3aed' },
+    { id: 'teal', name: 'Ocean Teal', primary: '#0891b2' }
+  ];
+
+  const fontFamilies = [
+    { id: 'default', name: 'Helvetica (Default)', description: 'Clean and readable' },
+    { id: 'times', name: 'Times Roman', description: 'Classic serif font' },
+    { id: 'courier', name: 'Courier', description: 'Monospace font' },
+    { id: 'palatino', name: 'Palatino', description: 'Elegant serif' }
+  ];
+
+  const fontSizes = [
+    { id: 'small', name: 'Small (10pt)', value: 10 },
+    { id: 'medium', name: 'Medium (12pt)', value: 12 },
+    { id: 'large', name: 'Large (14pt)', value: 14 },
+    { id: 'extra-large', name: 'Extra Large (16pt)', value: 16 }
+  ];
+
+  const pageSizes = [
+    { id: 'A4', name: 'A4 (210 × 297 mm)' },
+    { id: 'letter', name: 'US Letter (8.5 × 11 in)' },
+    { id: 'legal', name: 'US Legal (8.5 × 14 in)' },
+    { id: 'A5', name: 'A5 (148 × 210 mm)' }
+  ];
+
+  const lineSpacings = [
+    { id: 'compact', name: 'Compact (1.0)' },
+    { id: 'normal', name: 'Normal (1.2)' },
+    { id: 'relaxed', name: 'Relaxed (1.5)' },
+    { id: 'double', name: 'Double (2.0)' }
   ];
 
   const handleExport = async () => {
@@ -276,6 +314,163 @@ export const PDFExportDialog = ({
             </CardContent>
           </Card>
 
+          {/* Typography Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Typography</CardTitle>
+              <CardDescription>Customize fonts and text styling</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Font Family</Label>
+                  <RadioGroup 
+                    value={exportOptions.fontFamily} 
+                    onValueChange={(value) => setExportOptions(prev => ({ ...prev, fontFamily: value }))}
+                    className="mt-2"
+                  >
+                    {fontFamilies.map((font) => (
+                      <div key={font.id} className="flex items-center space-x-2">
+                        <RadioGroupItem value={font.id} id={font.id} />
+                        <Label htmlFor={font.id} className="text-sm">
+                          <div>{font.name}</div>
+                          <div className="text-xs text-muted-foreground">{font.description}</div>
+                        </Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Font Size</Label>
+                  <RadioGroup 
+                    value={exportOptions.fontSize} 
+                    onValueChange={(value) => setExportOptions(prev => ({ ...prev, fontSize: value }))}
+                    className="mt-2"
+                  >
+                    {fontSizes.map((size) => (
+                      <div key={size.id} className="flex items-center space-x-2">
+                        <RadioGroupItem value={size.id} id={size.id} />
+                        <Label htmlFor={size.id} className="text-sm">{size.name}</Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Page Layout */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Page Layout</CardTitle>
+              <CardDescription>Configure page size and spacing</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Page Size</Label>
+                  <RadioGroup 
+                    value={exportOptions.pageSize} 
+                    onValueChange={(value) => setExportOptions(prev => ({ ...prev, pageSize: value }))}
+                    className="mt-2"
+                  >
+                    {pageSizes.map((size) => (
+                      <div key={size.id} className="flex items-center space-x-2">
+                        <RadioGroupItem value={size.id} id={size.id} />
+                        <Label htmlFor={size.id} className="text-sm">{size.name}</Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Line Spacing</Label>
+                  <RadioGroup 
+                    value={exportOptions.lineSpacing} 
+                    onValueChange={(value) => setExportOptions(prev => ({ ...prev, lineSpacing: value }))}
+                    className="mt-2"
+                  >
+                    {lineSpacings.map((spacing) => (
+                      <div key={spacing.id} className="flex items-center space-x-2">
+                        <RadioGroupItem value={spacing.id} id={spacing.id} />
+                        <Label htmlFor={spacing.id} className="text-sm">{spacing.name}</Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Advanced Options */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Advanced Options</CardTitle>
+              <CardDescription>Additional formatting preferences</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="includeTitlePage"
+                      checked={exportOptions.includeTitlePage}
+                      onCheckedChange={(checked) => 
+                        setExportOptions(prev => ({ ...prev, includeTitlePage: checked as boolean }))
+                      }
+                    />
+                    <Label htmlFor="includeTitlePage" className="text-sm">Include title page</Label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="includeTableOfContents"
+                      checked={exportOptions.includeTableOfContents}
+                      onCheckedChange={(checked) => 
+                        setExportOptions(prev => ({ ...prev, includeTableOfContents: checked as boolean }))
+                      }
+                    />
+                    <Label htmlFor="includeTableOfContents" className="text-sm">Table of contents</Label>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="includeImages"
+                      checked={exportOptions.includeImages}
+                      onCheckedChange={(checked) => 
+                        setExportOptions(prev => ({ ...prev, includeImages: checked as boolean }))
+                      }
+                    />
+                    <Label htmlFor="includeImages" className="text-sm">Include images</Label>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm font-medium">Margin Size</Label>
+                    <RadioGroup 
+                      value={exportOptions.marginSize} 
+                      onValueChange={(value) => setExportOptions(prev => ({ ...prev, marginSize: value }))}
+                      className="mt-1"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="narrow" id="narrow" />
+                        <Label htmlFor="narrow" className="text-sm">Narrow</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="normal" id="normal" />
+                        <Label htmlFor="normal" className="text-sm">Normal</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="wide" id="wide" />
+                        <Label htmlFor="wide" className="text-sm">Wide</Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Content Options */}
           {(exportType === 'story' || exportType === 'all') && (
             <Card>
@@ -364,6 +559,18 @@ export const PDFExportDialog = ({
                   <span>Color Scheme:</span>
                   <Badge variant="outline">
                     {colorSchemes.find(c => c.id === exportOptions.colorScheme)?.name}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Font:</span>
+                  <Badge variant="outline">
+                    {fontFamilies.find(f => f.id === exportOptions.fontFamily)?.name.split(' ')[0]} • {fontSizes.find(s => s.id === exportOptions.fontSize)?.name}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Page Size:</span>
+                  <Badge variant="outline">
+                    {pageSizes.find(p => p.id === exportOptions.pageSize)?.name.split(' ')[0]}
                   </Badge>
                 </div>
                 {exportType === 'character' && selectedCharacter && (
