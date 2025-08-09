@@ -1,9 +1,3 @@
----
-noteId: "50bacd906f0311f09e30c3667bf4da0f"
-tags: []
-
----
-
 # Welcome to your Lovable project
 
 ## Project info

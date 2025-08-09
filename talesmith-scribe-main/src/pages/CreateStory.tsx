@@ -6,9 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Sparkles, BookOpen, Save, Eye } from 'lucide-react';
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ArrowLeft, Sparkles, BookOpen, Save, Eye, Users, Network } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
+import RelationshipMapping from '@/components/RelationshipMapping';
 
 const CreateStory = () => {
   const navigate = useNavigate();
@@ -20,8 +23,27 @@ const CreateStory = () => {
     description: '',
     premise: '',
     setting: '',
-    targetAudience: ''
+    targetAudience: '',
+    selectedCharacters: [] as string[]
   });
+
+  const [showRelationshipMapping, setShowRelationshipMapping] = useState(false);
+
+  // Mock characters data - in a real app, this would come from a database or context
+  const [availableCharacters] = useState([
+    {
+      id: '1',
+      name: 'Elena Shadowheart',
+      role: 'Protagonist',
+      archetype: 'The Hero'
+    },
+    {
+      id: '2',
+      name: 'Lord Varian',
+      role: 'Antagonist',
+      archetype: 'The Tyrant'
+    }
+  ]);
 
   const genres = [
     'Fantasy', 'Science Fiction', 'Mystery', 'Romance', 'Thriller', 
@@ -34,6 +56,15 @@ const CreateStory = () => {
 
   const handleInputChange = (field: string, value: string) => {
     setStoryData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleCharacterSelection = (characterId: string, checked: boolean) => {
+    setStoryData(prev => ({
+      ...prev,
+      selectedCharacters: checked 
+        ? [...prev.selectedCharacters, characterId]
+        : prev.selectedCharacters.filter(id => id !== characterId)
+    }));
   };
 
   const handleSaveDraft = () => {
@@ -198,6 +229,61 @@ const CreateStory = () => {
                     className="min-h-[100px]"
                   />
                 </div>
+
+                {/* Character Selection */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Characters & Relationships</Label>
+                    <div className="flex items-center space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setShowRelationshipMapping(true)}
+                      >
+                        <Network className="w-4 h-4 mr-2" />
+                        View Relationships
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate('/characters')}
+                      >
+                        <Users className="w-4 h-4 mr-2" />
+                        Manage Characters
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {availableCharacters.length > 0 ? (
+                      availableCharacters.map((character) => (
+                        <div key={character.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={character.id}
+                            checked={storyData.selectedCharacters.includes(character.id)}
+                            onCheckedChange={(checked) => handleCharacterSelection(character.id, checked as boolean)}
+                          />
+                          <Label htmlFor={character.id} className="text-sm flex-1 cursor-pointer">
+                            <div className="flex items-center justify-between">
+                              <span>{character.name}</span>
+                              <div className="flex items-center space-x-2">
+                                <Badge variant="outline" className="text-xs">
+                                  {character.role}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  {character.archetype}
+                                </span>
+                              </div>
+                            </div>
+                          </Label>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">
+                        No characters available. Create characters first to add them to your story.
+                      </p>
+                    )}
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -236,6 +322,33 @@ const CreateStory = () => {
                     <Badge variant="secondary">{storyData.targetAudience}</Badge>
                   </div>
                 )}
+
+                {storyData.selectedCharacters.length > 0 && (
+                  <div>
+                    <h4 className="font-medium text-sm text-muted-foreground mb-2">Selected Characters</h4>
+                    <div className="flex flex-wrap gap-1">
+                      {storyData.selectedCharacters.map((charId) => {
+                        const character = availableCharacters.find(c => c.id === charId);
+                        return character ? (
+                          <Badge key={charId} variant="outline" className="text-xs">
+                            {character.name}
+                          </Badge>
+                        ) : null;
+                      })}
+                    </div>
+                    <div className="mt-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setShowRelationshipMapping(true)}
+                        className="text-xs h-auto p-1"
+                      >
+                        <Network className="w-3 h-3 mr-1" />
+                        View Character Relationships
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -265,6 +378,19 @@ const CreateStory = () => {
           </div>
         </div>
       </div>
+
+      {/* Relationship Mapping Dialog */}
+      <Dialog open={showRelationshipMapping} onOpenChange={setShowRelationshipMapping}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Character Relationships</DialogTitle>
+          </DialogHeader>
+          <RelationshipMapping 
+            characters={availableCharacters}
+            onClose={() => setShowRelationshipMapping(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

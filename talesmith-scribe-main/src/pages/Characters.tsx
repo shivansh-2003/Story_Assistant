@@ -7,10 +7,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, Users, Sparkles, Brain, Eye, Edit, Trash2, Crown, Heart, Sword, Star } from 'lucide-react';
+import { ArrowLeft, Plus, Users, Sparkles, Brain, Eye, Edit, Trash2, Crown, Heart, Sword, Star, Download, FileUser } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
 import CharacterCard from '@/components/CharacterCard';
+import RelationshipMapping from '@/components/RelationshipMapping';
+import { exportCharacterProfile, exportAllCharacters } from '@/utils/pdfExport';
 
 interface Character {
   id: string;
@@ -57,6 +59,7 @@ const Characters = () => {
   ]);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showRelationshipMapping, setShowRelationshipMapping] = useState(false);
   const [newCharacter, setNewCharacter] = useState<Partial<Character>>({
     name: '',
     age: 0,
@@ -158,6 +161,47 @@ const Characters = () => {
       case 'The Tyrant': return <Sword className="w-4 h-4" />;
       case 'The Innocent': return <Heart className="w-4 h-4" />;
       default: return <Star className="w-4 h-4" />;
+    }
+  };
+
+  const exportSingleCharacterProfile = async (character: Character) => {
+    try {
+      await exportCharacterProfile(character);
+      toast({
+        title: "Export Complete",
+        description: `${character.name}'s profile has been exported as PDF.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export character profile.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const exportAllCharacterProfiles = async () => {
+    if (characters.length === 0) {
+      toast({
+        title: "No Characters",
+        description: "Create some characters first before exporting.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      await exportAllCharacters(characters);
+      toast({
+        title: "Export Complete",
+        description: "All character profiles have been exported as PDF.",
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export character profiles.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -315,7 +359,12 @@ const Characters = () => {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
-        {characters.length === 0 ? (
+        {showRelationshipMapping ? (
+          <RelationshipMapping 
+            characters={characters}
+            onClose={() => setShowRelationshipMapping(false)}
+          />
+        ) : characters.length === 0 ? (
           <div className="text-center py-16">
             <Users className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
             <h2 className="text-2xl font-serif font-bold mb-2">No Characters Yet</h2>
@@ -332,14 +381,15 @@ const Characters = () => {
                 key={character.id} 
                 character={character}
                 onDelete={() => deleteCharacter(character.id)}
+                onExportProfile={() => exportSingleCharacterProfile(character)}
               />
             ))}
           </div>
         )}
 
         {/* Character Development Tools */}
-        {characters.length > 0 && (
-          <div className="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {characters.length > 0 && !showRelationshipMapping && (
+          <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="bg-gradient-fantasy/10 backdrop-blur-sm border-accent/30">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2 font-serif">
@@ -351,25 +401,12 @@ const Characters = () => {
                 <p className="text-muted-foreground mb-4">
                   Visualize connections between your characters and develop complex relationships.
                 </p>
-                <Button variant="fantasy" size="sm">
+                <Button 
+                  variant="fantasy" 
+                  size="sm"
+                  onClick={() => setShowRelationshipMapping(true)}
+                >
                   Build Relationships
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-adventure/10 backdrop-blur-sm border-secondary/30">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2 font-serif">
-                  <Brain className="w-5 h-5 text-secondary" />
-                  <span>Character Analysis</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground mb-4">
-                  Get AI insights on character development and story potential.
-                </p>
-                <Button variant="adventure" size="sm">
-                  Analyze Characters
                 </Button>
               </CardContent>
             </Card>
@@ -377,7 +414,7 @@ const Characters = () => {
             <Card className="bg-gradient-primary/10 backdrop-blur-sm border-primary/30">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2 font-serif">
-                  <Eye className="w-5 h-5 text-primary" />
+                  <FileUser className="w-5 h-5 text-primary" />
                   <span>Character Profiles</span>
                 </CardTitle>
               </CardHeader>
@@ -385,9 +422,19 @@ const Characters = () => {
                 <p className="text-muted-foreground mb-4">
                   Export detailed character sheets and profiles for reference.
                 </p>
-                <Button variant="default" size="sm">
-                  Export Profiles
-                </Button>
+                <div className="flex flex-col space-y-2">
+                  <Button 
+                    variant="default" 
+                    size="sm"
+                    onClick={exportAllCharacterProfiles}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export All Profiles
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Individual profiles can be exported from each character card
+                  </p>
+                </div>
               </CardContent>
             </Card>
           </div>

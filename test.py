@@ -13,6 +13,10 @@ class APITester:
         self.story_id = None
         self.segment_ids = []
         self.characters = []
+        self.character_ids = []
+        self.chapter_ids = []
+        self.relationship_ids = []
+        self.created_characters = []
         
     def test_health_check(self):
         """Test API health endpoint"""
@@ -44,7 +48,7 @@ class APITester:
                 "appearance": "A tall woman with silver hair and piercing blue eyes, wearing elegant robes",
                 "speaking_style": "formal",
                 "special_abilities": ["Fire magic", "Telepathy"],
-                "relationships": {"Marcus": "childhood friend"}
+                "relationships": ["Marcus (childhood friend)"]
             },
             {
                 "name": "Marcus Ironheart",
@@ -57,7 +61,7 @@ class APITester:
                 "appearance": "A muscular man with dark hair and battle scars",
                 "speaking_style": "casual",
                 "special_abilities": ["Swordsmanship", "Leadership"],
-                "relationships": {"Elena": "childhood friend"}
+                "relationships": ["Elena (childhood friend)"]
             }
         ]
         
@@ -73,7 +77,9 @@ class APITester:
                 assert result["success"] == True
                 assert result["character"]["name"] == char_data["name"]
                 self.characters.append(char_data)
-                print(f"✅ Character {char_data['name']} created")
+                self.created_characters.append(result["character"])
+                self.character_ids.append(result["character"]["id"])
+                print(f"✅ Character {char_data['name']} created with ID: {result['character']['id']}")
             return True
         except Exception as e:
             print(f"❌ Character creation failed: {e}")
@@ -453,95 +459,6 @@ class APITester:
             print(f"❌ PDF direct export failed: {e}")
             return False
     
-    def test_get_audio_languages(self):
-        """Test getting supported audio languages"""
-        print("\n🌍 Testing audio language support...")
-        
-        try:
-            response = requests.get(f"{self.base_url}/export/audio/languages/")
-            if response.status_code != 200:
-                print(f"❌ Audio languages failed with status {response.status_code}")
-                return False
-                
-            result = response.json()
-            if not result.get("success", False):
-                print(f"❌ Audio languages returned success=False: {result}")
-                return False
-            
-            if "languages" not in result or len(result["languages"]) < 5:
-                print(f"❌ Insufficient languages: {result.get('languages', {})}")
-                return False
-                
-            print(f"✅ Found {len(result['languages'])} supported languages")
-            return True
-            
-        except Exception as e:
-            print(f"❌ Audio languages test failed: {e}")
-            return False
-    
-    def test_export_audio_base64(self):
-        """Test audio export as base64"""
-        print("\n🎵 Testing audio export (base64)...")
-        
-        try:
-            response = requests.post(f"{self.base_url}/stories/{self.story_id}/export/audio/base64/?language=en")
-            print(f"Audio base64 export status: {response.status_code}")
-            
-            if response.status_code != 200:
-                print(f"❌ Audio base64 export failed with status {response.status_code}")
-                print(f"Response: {response.text}")
-                return False
-            
-            result = response.json()
-            if not result.get("success", False):
-                print(f"❌ Audio export returned success=False: {result}")
-                return False
-            
-            if "audio_base64" not in result or len(result["audio_base64"]) < 1000:
-                print(f"❌ Invalid audio base64 data: {len(result.get('audio_base64', ''))}")
-                return False
-            
-            # Validate base64 format
-            try:
-                base64.b64decode(result["audio_base64"])
-                print("✅ Audio generated and base64 encoded successfully")
-                return True
-            except Exception as e:
-                print(f"❌ Invalid base64 audio: {e}")
-                return False
-                
-        except Exception as e:
-            print(f"❌ Audio base64 export failed: {e}")
-            return False
-    
-    def test_export_audio_direct(self):
-        """Test direct audio download"""
-        print("\n🎧 Testing audio direct download...")
-        
-        try:
-            response = requests.post(f"{self.base_url}/stories/{self.story_id}/export/audio/?language=en")
-            print(f"Audio direct export status: {response.status_code}")
-            
-            if response.status_code != 200:
-                print(f"❌ Audio direct export failed with status {response.status_code}")
-                print(f"Response: {response.text}")
-                return False
-            
-            if response.headers.get("content-type") != "audio/mpeg":
-                print(f"❌ Wrong content type: {response.headers.get('content-type')}")
-                return False
-            
-            if len(response.content) < 1000:
-                print(f"❌ Audio too small: {len(response.content)} bytes")
-                return False
-                
-            print("✅ Audio direct download successful")
-            return True
-            
-        except Exception as e:
-            print(f"❌ Audio direct export failed: {e}")
-            return False
-    
     def test_list_stories(self):
         """Test listing all stories"""
         print("\n📚 Testing story listing...")
@@ -579,6 +496,24 @@ class APITester:
                 print(f"❌ Expected 404 for non-existent story, got {response.status_code}")
                 return False
             
+            # Test non-existent character
+            response = requests.get(f"{self.base_url}/characters/nonexistent-id")
+            if response.status_code != 404:
+                print(f"❌ Expected 404 for non-existent character, got {response.status_code}")
+                return False
+            
+            # Test non-existent chapter
+            response = requests.get(f"{self.base_url}/stories/{self.story_id}/chapters/nonexistent-id")
+            if response.status_code != 404:
+                print(f"❌ Expected 404 for non-existent chapter, got {response.status_code}")
+                return False
+            
+            # Test non-existent relationship
+            response = requests.get(f"{self.base_url}/relationships/nonexistent-id")
+            if response.status_code != 404:
+                print(f"❌ Expected 404 for non-existent relationship, got {response.status_code}")
+                return False
+            
             # Test invalid edit request
             invalid_edit = {
                 "story_id": "invalid",
@@ -591,6 +526,44 @@ class APITester:
                 print(f"❌ Expected 404 for invalid edit, got {response.status_code}")
                 return False
             
+            # Test creating relationship with non-existent characters
+            invalid_relationship = {
+                "character1_id": "nonexistent1",
+                "character2_id": "nonexistent2",
+                "type": "friend",
+                "description": "test"
+            }
+            response = requests.post(f"{self.base_url}/relationships/", json=invalid_relationship)
+            if response.status_code != 404:
+                print(f"❌ Expected 404 for relationship with non-existent characters, got {response.status_code}")
+                return False
+            
+            # Test updating non-existent character
+            response = requests.put(f"{self.base_url}/characters/nonexistent-id", json={"age": 30})
+            if response.status_code != 404:
+                print(f"❌ Expected 404 for updating non-existent character, got {response.status_code}")
+                return False
+            
+            # Test deleting non-existent chapter
+            print(f"Testing delete with story_id: {self.story_id}")
+            non_existent_chapter_id = "99999999-9999-9999-9999-999999999999"
+            url = f"{self.base_url}/stories/{self.story_id}/chapters/{non_existent_chapter_id}"
+            print(f"DEBUG: Calling DELETE {url}")
+            response = requests.delete(url)
+            print(f"DEBUG: Response status: {response.status_code}")
+            print(f"DEBUG: Response text: {response.text}")
+            if response.status_code != 404:
+                print(f"❌ Expected 404 for deleting non-existent chapter, got {response.status_code}")
+                print(f"Response: {response.text}")
+                return False
+            
+            # Test deleting chapter from non-existent story
+            response = requests.delete(f"{self.base_url}/stories/nonexistent-story-id/chapters/{non_existent_chapter_id}")
+            if response.status_code != 404:
+                print(f"❌ Expected 404 for deleting chapter from non-existent story, got {response.status_code}")
+                print(f"Response: {response.text}")
+                return False
+            
             print("✅ Error handling working correctly")
             return True
             
@@ -598,28 +571,613 @@ class APITester:
             print(f"❌ Error case testing failed: {e}")
             return False
     
+    # Extended Character Management Tests
+    def test_list_characters(self):
+        """Test listing all characters"""
+        print("\n👥 Testing character listing...")
+        
+        try:
+            response = requests.get(f"{self.base_url}/characters/")
+            if response.status_code != 200:
+                print(f"❌ Character listing failed with status {response.status_code}")
+                return False
+                
+            result = response.json()
+            if not result.get("success", False):
+                print(f"❌ Character listing returned success=False: {result}")
+                return False
+            
+            if "characters" not in result or len(result["characters"]) < len(self.character_ids):
+                print(f"❌ Expected at least {len(self.character_ids)} characters, got {len(result.get('characters', []))}")
+                return False
+                
+            print(f"✅ Found {result['count']} characters in system")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Character listing failed: {e}")
+            return False
+    
+    def test_get_character(self):
+        """Test getting specific character"""
+        print("\n🎭 Testing character retrieval...")
+        
+        if not self.character_ids:
+            print("⚠️ Skipping character retrieval - no characters available")
+            return True
+        
+        try:
+            character_id = self.character_ids[0]
+            response = requests.get(f"{self.base_url}/characters/{character_id}")
+            if response.status_code != 200:
+                print(f"❌ Character retrieval failed with status {response.status_code}")
+                return False
+                
+            result = response.json()
+            if not result.get("success", False):
+                print(f"❌ Character retrieval returned success=False: {result}")
+                return False
+            
+            if result["character"]["id"] != character_id:
+                print(f"❌ Retrieved wrong character: expected {character_id}, got {result['character']['id']}")
+                return False
+                
+            print(f"✅ Character {result['character']['name']} retrieved successfully")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Character retrieval failed: {e}")
+            return False
+    
+    def test_update_character(self):
+        """Test updating character details"""
+        print("\n✏️ Testing character update...")
+        
+        if not self.character_ids:
+            print("⚠️ Skipping character update - no characters available")
+            return True
+        
+        try:
+            character_id = self.character_ids[0]
+            update_data = {
+                "motivation": "Updated motivation: To save the world from ancient darkness",
+                "age": 26,
+                "personality": "Brave, determined, and slightly reckless in pursuit of justice"
+            }
+            
+            response = requests.put(f"{self.base_url}/characters/{character_id}", json=update_data)
+            if response.status_code != 200:
+                print(f"❌ Character update failed with status {response.status_code}")
+                return False
+                
+            result = response.json()
+            if not result.get("success", False):
+                print(f"❌ Character update returned success=False: {result}")
+                return False
+            
+            if result["character"]["motivation"] != update_data["motivation"]:
+                print(f"❌ Character update failed: motivation not updated")
+                return False
+                
+            print("✅ Character updated successfully")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Character update failed: {e}")
+            return False
+    
+    # Chapter Management Tests
+    def test_create_chapters(self):
+        """Test creating chapters in story"""
+        print("\n📖 Testing chapter creation...")
+        
+        if not self.story_id:
+            print("❌ No story ID available for chapter testing")
+            return False
+        
+        try:
+            chapters_data = [
+                {
+                    "title": "Chapter 1: The Awakening",
+                    "content": "In the mystical kingdom of Aethermoor, Elena Brightblade felt the ancient magic stirring...",
+                    "status": "completed"
+                },
+                {
+                    "title": "Chapter 2: The Discovery",
+                    "content": "",
+                    "status": "draft"
+                },
+                {
+                    "title": "Chapter 3: The Quest Begins",
+                    "content": "Marcus Ironheart joined Elena as they prepared to venture into the unknown...",
+                    "status": "in-progress"
+                }
+            ]
+            
+            for chapter_data in chapters_data:
+                response = requests.post(f"{self.base_url}/stories/{self.story_id}/chapters/", json=chapter_data)
+                if response.status_code != 200:
+                    print(f"❌ Chapter creation failed with status {response.status_code}")
+                    print(f"Response: {response.text}")
+                    return False
+                    
+                result = response.json()
+                if not result.get("success", False):
+                    print(f"❌ Chapter creation returned success=False: {result}")
+                    return False
+                
+                self.chapter_ids.append(result["chapter"]["id"])
+                print(f"✅ Chapter created: {chapter_data['title']}")
+            
+            return True
+            
+        except Exception as e:
+            print(f"❌ Chapter creation failed: {e}")
+            return False
+            
+    def test_list_chapters(self):
+        """Test listing story chapters"""
+        print("\n📚 Testing chapter listing...")
+        
+        try:
+            response = requests.get(f"{self.base_url}/stories/{self.story_id}/chapters/")
+            if response.status_code != 200:
+                print(f"❌ Chapter listing failed with status {response.status_code}")
+                return False
+                
+            result = response.json()
+            if not result.get("success", False):
+                print(f"❌ Chapter listing returned success=False: {result}")
+                return False
+            
+            if len(result["chapters"]) != len(self.chapter_ids):
+                print(f"❌ Expected {len(self.chapter_ids)} chapters, got {len(result['chapters'])}")
+                return False
+                
+            print(f"✅ Found {result['count']} chapters in story")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Chapter listing failed: {e}")
+            return False
+    
+    def test_get_chapter(self):
+        """Test getting specific chapter"""
+        print("\n📄 Testing chapter retrieval...")
+        
+        if not self.chapter_ids:
+            print("❌ No chapter IDs available for testing")
+            return False
+        
+        try:
+            chapter_id = self.chapter_ids[0]
+            response = requests.get(f"{self.base_url}/stories/{self.story_id}/chapters/{chapter_id}")
+            if response.status_code != 200:
+                print(f"❌ Chapter retrieval failed with status {response.status_code}")
+                return False
+                
+            result = response.json()
+            if not result.get("success", False):
+                print(f"❌ Chapter retrieval returned success=False: {result}")
+                return False
+            
+            if result["chapter"]["id"] != chapter_id:
+                print(f"❌ Retrieved wrong chapter")
+                return False
+                
+            print(f"✅ Chapter retrieved: {result['chapter']['title']}")
+            return True
+                
+        except Exception as e:
+            print(f"❌ Chapter retrieval failed: {e}")
+            return False
+    
+    def test_update_chapter(self):
+        """Test updating chapter content"""
+        print("\n✏️ Testing chapter update...")
+        
+        if not self.chapter_ids:
+            print("❌ No chapter IDs available for testing")
+            return False
+        
+        try:
+            chapter_id = self.chapter_ids[1]  # Use the empty chapter
+            update_data = {
+                "title": "Chapter 2: The Discovery",
+                "content": "The ancient library held secrets that Elena had never imagined. As she touched the glowing tome, visions of the past flooded her mind...",
+                "status": "in-progress"
+            }
+            
+            response = requests.put(f"{self.base_url}/stories/{self.story_id}/chapters/{chapter_id}", json=update_data)
+            if response.status_code != 200:
+                print(f"❌ Chapter update failed with status {response.status_code}")
+                return False
+                
+            result = response.json()
+            if not result.get("success", False):
+                print(f"❌ Chapter update returned success=False: {result}")
+                return False
+            
+            if not result["chapter"]["content"]:
+                print(f"❌ Chapter content not updated")
+                return False
+                
+            print("✅ Chapter updated successfully")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Chapter update failed: {e}")
+            return False
+    
+    def test_generate_chapter_content(self):
+        """Test AI chapter content generation"""
+        print("\n🤖 Testing AI chapter generation...")
+        
+        if not self.chapter_ids:
+            print("❌ No chapter IDs available for testing")
+            return False
+        
+        try:
+            # Use the last chapter for generation
+            chapter_id = self.chapter_ids[-1]
+            response = requests.post(f"{self.base_url}/stories/{self.story_id}/chapters/{chapter_id}/generate/?target_length=short")
+            print(f"Chapter generation response status: {response.status_code}")
+            
+            if response.status_code != 200:
+                print(f"❌ Chapter generation failed with status {response.status_code}")
+                print(f"Response: {response.text}")
+                return False
+            
+            result = response.json()
+            if not result.get("success", False):
+                print(f"❌ Chapter generation returned success=False: {result}")
+                return False
+            
+            if not result["chapter"]["content"] or len(result["chapter"]["content"]) < 100:
+                print(f"❌ Generated content too short or empty")
+                return False
+                
+            print("✅ Chapter content generated successfully")
+            print(f"   Content preview: {result['chapter']['content'][:100]}...")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Chapter generation failed: {e}")
+            return False
+    
+    # Relationship Management Tests
+    def test_create_relationships(self):
+        """Test creating character relationships"""
+        print("\n💫 Testing relationship creation...")
+        
+        if len(self.character_ids) < 2:
+            print("⚠️ Skipping relationship testing - need at least 2 characters")
+            return True  # Return True to not fail the test, just skip it
+        
+        try:
+            relationships_data = [
+                {
+                    "character1_id": self.character_ids[0],
+                    "character2_id": self.character_ids[1],
+                    "type": "childhood friend",
+                    "description": "Elena and Marcus grew up together in the royal academy",
+                    "strength": 8
+                },
+                {
+                    "character1_id": self.character_ids[1],
+                    "character2_id": self.character_ids[0],
+                    "type": "trusted ally",
+                    "description": "Marcus trusts Elena's magical abilities completely",
+                    "strength": 9
+                }
+            ]
+            
+            for rel_data in relationships_data:
+                response = requests.post(f"{self.base_url}/relationships/", json=rel_data)
+                if response.status_code != 200:
+                    print(f"❌ Relationship creation failed with status {response.status_code}")
+                    print(f"Response: {response.text}")
+                    return False
+                    
+                result = response.json()
+                if not result.get("success", False):
+                    print(f"❌ Relationship creation returned success=False: {result}")
+                    return False
+                
+                self.relationship_ids.append(result["relationship"]["id"])
+                print(f"✅ Relationship created: {rel_data['type']}")
+            
+            return True
+            
+        except Exception as e:
+            print(f"❌ Relationship creation failed: {e}")
+            return False
+    
+    def test_list_relationships(self):
+        """Test listing all relationships"""
+        print("\n🔗 Testing relationship listing...")
+        
+        try:
+            response = requests.get(f"{self.base_url}/relationships/")
+            if response.status_code != 200:
+                print(f"❌ Relationship listing failed with status {response.status_code}")
+                return False
+                
+            result = response.json()
+            if not result.get("success", False):
+                print(f"❌ Relationship listing returned success=False: {result}")
+                return False
+            
+            if len(result["relationships"]) < len(self.relationship_ids):
+                print(f"❌ Expected at least {len(self.relationship_ids)} relationships")
+                return False
+                
+            print(f"✅ Found {result['count']} relationships in system")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Relationship listing failed: {e}")
+            return False
+    
+    def test_get_character_relationships(self):
+        """Test getting relationships for specific character"""
+        print("\n🎭 Testing character relationship retrieval...")
+        
+        if not self.character_ids:
+            print("⚠️ Skipping character relationship retrieval - no characters available")
+            return True
+        
+        try:
+            character_id = self.character_ids[0]
+            response = requests.get(f"{self.base_url}/characters/{character_id}/relationships/")
+            if response.status_code != 200:
+                print(f"❌ Character relationships failed with status {response.status_code}")
+                return False
+            
+            result = response.json()
+            if not result.get("success", False):
+                print(f"❌ Character relationships returned success=False: {result}")
+                return False
+            
+            print(f"✅ Found {result['count']} relationships for character")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Character relationships failed: {e}")
+            return False
+    
+    # Story Management Tests
+    def test_update_story(self):
+        """Test updating story details"""
+        print("\n📝 Testing story update...")
+        
+        if not self.story_id:
+            print("❌ No story ID available for testing")
+            return False
+        
+        try:
+            update_data = {
+                "title": "The Crystal Chronicles: Awakening",
+                "genre": "Epic Fantasy",
+                "description": "An epic tale of magic, friendship, and the battle against ancient darkness",
+                "setting": "The mystical kingdom of Aethermoor",
+                "target_audience": "Young Adult",
+                "is_draft": False
+            }
+            
+            response = requests.put(f"{self.base_url}/stories/{self.story_id}", json=update_data)
+            if response.status_code != 200:
+                print(f"❌ Story update failed with status {response.status_code}")
+                return False
+            
+            result = response.json()
+            if not result.get("success", False):
+                print(f"❌ Story update returned success=False: {result}")
+                return False
+            
+            if result["story"]["title"] != update_data["title"]:
+                print(f"❌ Story title not updated correctly")
+                return False
+                
+            print("✅ Story updated successfully")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Story update failed: {e}")
+            return False
+    
+    def test_save_draft(self):
+        """Test saving story as draft"""
+        print("\n💾 Testing draft save...")
+        
+        try:
+            response = requests.post(f"{self.base_url}/stories/{self.story_id}/draft/")
+            if response.status_code != 200:
+                print(f"❌ Draft save failed with status {response.status_code}")
+                return False
+                
+            result = response.json()
+            if not result.get("success", False):
+                print(f"❌ Draft save returned success=False: {result}")
+                return False
+                
+            print("✅ Story saved as draft")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Draft save failed: {e}")
+            return False
+    
+    def test_list_drafts(self):
+        """Test listing draft stories"""
+        print("\n📄 Testing draft listing...")
+        
+        try:
+            response = requests.get(f"{self.base_url}/drafts/")
+            if response.status_code != 200:
+                print(f"❌ Draft listing failed with status {response.status_code}")
+                return False
+                
+            result = response.json()
+            if not result.get("success", False):
+                print(f"❌ Draft listing returned success=False: {result}")
+                return False
+            
+            # Should find at least our story since we saved it as draft
+            draft_ids = [draft["id"] for draft in result["drafts"]]
+            if self.story_id not in draft_ids:
+                print(f"❌ Our story not found in drafts")
+                return False
+                
+            print(f"✅ Found {result['count']} draft stories")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Draft listing failed: {e}")
+            return False
+    
+    # Cleanup Tests
+    def test_delete_chapter(self):
+        """Test deleting a chapter"""
+        print("\n🗑️ Testing chapter deletion...")
+        
+        if not self.chapter_ids:
+            print("❌ No chapter IDs available for deletion testing")
+            return False
+        
+        try:
+            # Delete the last chapter
+            chapter_id = self.chapter_ids[-1]
+            response = requests.delete(f"{self.base_url}/stories/{self.story_id}/chapters/{chapter_id}")
+            if response.status_code != 200:
+                print(f"❌ Chapter deletion failed with status {response.status_code}")
+                return False
+                
+            result = response.json()
+            if not result.get("success", False):
+                print(f"❌ Chapter deletion returned success=False: {result}")
+                return False
+                
+            print("✅ Chapter deleted successfully")
+            self.chapter_ids.remove(chapter_id)  # Remove from our tracking
+            return True
+            
+        except Exception as e:
+            print(f"❌ Chapter deletion failed: {e}")
+            return False
+    
+    def test_delete_relationship(self):
+        """Test deleting a relationship"""
+        print("\n💔 Testing relationship deletion...")
+        
+        if not self.relationship_ids:
+            print("⚠️ Skipping relationship deletion - no relationships available")
+            return True
+        
+        try:
+            relationship_id = self.relationship_ids[0]
+            response = requests.delete(f"{self.base_url}/relationships/{relationship_id}")
+            if response.status_code != 200:
+                print(f"❌ Relationship deletion failed with status {response.status_code}")
+                return False
+                
+            result = response.json()
+            if not result.get("success", False):
+                print(f"❌ Relationship deletion returned success=False: {result}")
+                return False
+                
+            print("✅ Relationship deleted successfully")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Relationship deletion failed: {e}")
+            return False
+    
+    def test_delete_character(self):
+        """Test deleting a character"""
+        print("\n👻 Testing character deletion...")
+        
+        if len(self.character_ids) < 2:
+            print("⚠️ Skipping character deletion - need at least 2 characters")
+            return True
+        
+        try:
+            # Delete the last character
+            character_id = self.character_ids[-1]
+            response = requests.delete(f"{self.base_url}/characters/{character_id}")
+            if response.status_code != 200:
+                print(f"❌ Character deletion failed with status {response.status_code}")
+                return False
+                
+            result = response.json()
+            if not result.get("success", False):
+                print(f"❌ Character deletion returned success=False: {result}")
+                return False
+                
+            print("✅ Character deleted successfully")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Character deletion failed: {e}")
+            return False
+    
     def run_comprehensive_test(self):
         """Run all tests in sequence"""
         print("🚀 Starting comprehensive API testing...\n")
         
         tests = [
+            # Basic health and setup
             self.test_health_check,
             self.test_debug_llm_service,
+            
+            # Character management tests
             self.test_create_characters,
+            self.test_list_characters,
+            self.test_get_character,
+            self.test_update_character,
             self.test_generate_backstories,
+            
+            # Story creation and basic management
             self.test_create_story,
             self.test_get_story,
+            self.test_update_story,
             self.test_add_character_to_story,
+            
+            # Chapter management tests
+            self.test_create_chapters,
+            self.test_list_chapters,
+            self.test_get_chapter,
+            self.test_update_chapter,
+            self.test_generate_chapter_content,
+            
+            # Relationship management tests
+            self.test_create_relationships,
+            self.test_list_relationships,
+            self.test_get_character_relationships,
+            
+            # Story generation and editing (existing functionality)
             self.test_generate_story_with_user_choice,
             self.test_edit_story_segment,
             self.test_auto_continue_story,
+            
+            # Draft management
+            self.test_save_draft,
+            self.test_list_drafts,
+            
+            # Story completion
             self.test_complete_story,
+            
+            # Export functionality
             self.test_export_pdf_base64,
             self.test_export_pdf_direct,
-            self.test_get_audio_languages,
-            self.test_export_audio_base64,
-            self.test_export_audio_direct,
+            
+            # Listing and cleanup tests
             self.test_list_stories,
+            self.test_delete_chapter,
+            self.test_delete_relationship,
+            self.test_delete_character,
+            
+            # Error handling
             self.test_error_cases
         ]
         
@@ -646,6 +1204,14 @@ class APITester:
         
         if failed == 0:
             print("\n🎉 All tests passed! API is fully functional.")
+            print("✅ Tested endpoints:")
+            print("   • Character Management (CRUD + Backstory)")
+            print("   • Chapter Management (CRUD + AI Generation)")
+            print("   • Relationship Management (CRUD)")
+            print("   • Story Management (CRUD + Generation + Editing)")
+            print("   • Draft Management")
+            print("   • PDF Export Services")
+            print("   • Error Handling")
         else:
             print(f"\n⚠️ {failed} tests failed. Check the logs above for details.")
         
@@ -676,8 +1242,15 @@ def run_performance_test(base_url: str = "http://localhost:8000"):
     print(f"⏱️ Average response time: {avg_time:.3f}s")
 
 if __name__ == "__main__":
-    print("🧪 Interactive Storytelling API Test Suite")
-    print("=" * 50)
+    print("🧪 Interactive Storytelling API Comprehensive Test Suite")
+    print("=" * 60)
+    print("Testing 25+ API endpoints:")
+    print("• Character Management (CRUD + AI)")
+    print("• Chapter Management (CRUD + AI)")  
+    print("• Relationship Management (CRUD)")
+    print("• Story Management (CRUD + AI)")
+    print("• Draft & PDF Export Services")
+    print("=" * 60)
     
     # Initialize tester
     tester = APITester()

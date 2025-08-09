@@ -88,9 +88,30 @@ class PDFExportService:
             pdf.cell(0, 10, "Story:", ln=True)
             pdf.set_font("Arial", "", 12)
             
-            # Add segments in order
-            sorted_segments = sorted(story.segments, key=lambda x: x.order)
-            if sorted_segments:
+            # Add chapters first if they exist
+            if story.chapters:
+                sorted_chapters = sorted(story.chapters, key=lambda x: x.order)
+                for chapter in sorted_chapters:
+                    # Chapter title
+                    pdf.set_font("Arial", "B", 13)
+                    clean_title = self._clean_text_for_pdf(chapter.title)
+                    if clean_title:
+                        pdf.cell(0, 10, clean_title, ln=True)
+                        pdf.ln(3)
+                    
+                    # Chapter content
+                    pdf.set_font("Arial", "", 12)
+                    if chapter.content:
+                        clean_content = self._clean_text_for_pdf(chapter.content)
+                        if clean_content:
+                            pdf.multi_cell(0, 8, clean_content)
+                    else:
+                        pdf.multi_cell(0, 8, "[Chapter content to be written]")
+                    pdf.ln(8)
+            
+            # Add segments if no chapters exist (backward compatibility)
+            elif story.segments:
+                sorted_segments = sorted(story.segments, key=lambda x: x.order)
                 for segment in sorted_segments:
                     # Clean and add content
                     clean_content = self._clean_text_for_pdf(segment.content)
@@ -153,9 +174,20 @@ class AudioExportService:
         if language not in self.supported_languages:
             language = "en"
         
-        # Combine all story segments
-        sorted_segments = sorted(story.segments, key=lambda x: x.order)
-        full_text = " ".join([segment.content for segment in sorted_segments])
+        # Combine chapters first if they exist
+        full_text = ""
+        if story.chapters:
+            sorted_chapters = sorted(story.chapters, key=lambda x: x.order)
+            chapter_texts = []
+            for chapter in sorted_chapters:
+                if chapter.content:
+                    chapter_texts.append(f"{chapter.title}. {chapter.content}")
+            full_text = " ".join(chapter_texts)
+        
+        # Fall back to segments if no chapters (backward compatibility)
+        if not full_text.strip() and story.segments:
+            sorted_segments = sorted(story.segments, key=lambda x: x.order)
+            full_text = " ".join([segment.content for segment in sorted_segments])
         
         # Handle empty story - use base idea or placeholder
         if not full_text.strip():

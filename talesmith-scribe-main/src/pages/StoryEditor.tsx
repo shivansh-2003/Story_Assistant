@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Save, Eye, FileText, Users, Settings, Brain, Download } from 'lucide-react';
+import { ArrowLeft, Save, Eye, FileText, Users, Settings, Brain, Download, Network } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
+import { PDFExportDialog } from '@/components/PDFExportDialog';
 
 const StoryEditor = () => {
   const navigate = useNavigate();
@@ -38,6 +39,46 @@ const StoryEditor = () => {
 
   const [currentChapter, setCurrentChapter] = useState(storyContent.chapters[0]);
   const [isEditing, setIsEditing] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+
+  // Mock data for characters and relationships
+  const [linkedCharacters] = useState([
+    {
+      id: '1',
+      name: 'Elena Shadowheart',
+      age: 28,
+      role: 'Protagonist',
+      personality: 'Brave, determined, and compassionate. Elena has a strong sense of justice.',
+      background: 'Former royal guard who discovered corruption in the kingdom.',
+      appearance: 'Tall with raven-black hair and piercing green eyes.',
+      motivation: 'To restore justice and protect the innocent.',
+      archetype: 'The Hero',
+      relationships: []
+    },
+    {
+      id: '2',
+      name: 'Lord Varian',
+      age: 45,
+      role: 'Antagonist',
+      personality: 'Cunning, manipulative, and ruthless.',
+      background: 'Noble who seized power through political machinations.',
+      appearance: 'Distinguished with silver hair and cold blue eyes.',
+      motivation: 'To maintain absolute control over the kingdom.',
+      archetype: 'The Tyrant',
+      relationships: []
+    }
+  ]);
+
+  const [relationships] = useState([
+    {
+      id: '1',
+      character1Id: '1',
+      character2Id: '2',
+      type: 'Enemy',
+      description: 'Elena seeks to overthrow Varian\'s corrupt rule',
+      strength: 8
+    }
+  ]);
 
   const saveStory = () => {
     // Here you would save to database
@@ -48,10 +89,7 @@ const StoryEditor = () => {
   };
 
   const exportStory = () => {
-    toast({
-      title: "Export Started",
-      description: "Your story is being prepared for download.",
-    });
+    setShowExportDialog(true);
   };
 
   const addNewChapter = () => {
@@ -117,7 +155,7 @@ const StoryEditor = () => {
             <div className="flex items-center space-x-2">
               <Button variant="outline" size="sm" onClick={exportStory}>
                 <Download className="w-4 h-4 mr-2" />
-                Export
+                Export PDF
               </Button>
               <Button variant="outline" size="sm">
                 <Eye className="w-4 h-4 mr-2" />
@@ -259,21 +297,55 @@ const StoryEditor = () => {
                   <CardHeader>
                     <CardTitle>Story Characters</CardTitle>
                     <CardDescription>
-                      Manage characters in this story
+                      Characters linked to this story
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-center py-8">
-                      <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground mb-4">
-                        Connect characters to this story
-                      </p>
-                      <Button 
-                        variant="outline"
-                        onClick={() => navigate('/characters')}
-                      >
-                        Manage Characters
-                      </Button>
+                    <div className="space-y-4">
+                      {/* Show linked characters */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-4 border border-border rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-medium">Elena Shadowheart</h4>
+                            <Badge variant="outline">Protagonist</Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">The Hero</p>
+                          <p className="text-xs text-muted-foreground">
+                            Former royal guard turned rebel seeking justice
+                          </p>
+                        </div>
+                        <div className="p-4 border border-border rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-medium">Lord Varian</h4>
+                            <Badge variant="outline">Antagonist</Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">The Tyrant</p>
+                          <p className="text-xs text-muted-foreground">
+                            Noble who seized power through manipulation
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="text-center pt-4 border-t border-border space-y-2">
+                        <div className="flex justify-center space-x-2">
+                          <Button 
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate('/characters')}
+                          >
+                            <Users className="w-4 h-4 mr-2" />
+                            Manage Characters
+                          </Button>
+                          <Button 
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowExportDialog(true)}
+                          >
+                            <Network className="w-4 h-4 mr-2" />
+                            View Relationships
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -356,6 +428,16 @@ const StoryEditor = () => {
           </div>
         </div>
       </div>
+
+      {/* PDF Export Dialog */}
+      <PDFExportDialog
+        open={showExportDialog}
+        onOpenChange={setShowExportDialog}
+        characters={linkedCharacters}
+        relationships={relationships}
+        story={storyContent}
+        exportType="story"
+      />
     </div>
   );
 };

@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Crown, Heart, Sword, Star, Edit, Trash2 } from 'lucide-react';
+import { Crown, Heart, Sword, Star, Edit, Trash2, Download } from 'lucide-react';
 
 interface Character {
   id: string;
@@ -20,9 +20,10 @@ interface Character {
 interface CharacterCardProps {
   character: Character;
   onDelete: () => void;
+  onExportProfile?: () => void;
 }
 
-const CharacterCard: React.FC<CharacterCardProps> = ({ character, onDelete }) => {
+const CharacterCard: React.FC<CharacterCardProps> = ({ character, onDelete, onExportProfile }) => {
   const getArchetypeIcon = (archetype: string) => {
     switch (archetype) {
       case 'The Hero': return <Crown className="w-4 h-4" />;
@@ -53,6 +54,17 @@ const CharacterCard: React.FC<CharacterCardProps> = ({ character, onDelete }) =>
             </Badge>
           </div>
           <div className="flex items-center space-x-1">
+            {onExportProfile && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onExportProfile}
+                className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                title="Export Profile"
+              >
+                <Download className="w-3 h-3" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"

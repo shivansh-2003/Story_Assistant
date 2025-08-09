@@ -174,6 +174,60 @@ Generate a compelling backstory (150-200 words) that explains how this character
         })
         
         return result.strip()
+    
+    def generate_chapter_content(self, 
+                               chapter_title: str,
+                               story_context: str,
+                               characters: List[Character],
+                               theme: StoryTheme,
+                               target_length: str = "medium") -> str:
+        """Generate content for a specific chapter"""
+        
+        prompt_template = ChatPromptTemplate.from_messages([
+            ("system", """You are a creative storyteller writing a specific chapter. Generate engaging chapter content that:
+            1. Matches the chapter title and story context
+            2. Incorporates character personalities consistently
+            3. Maintains the story's theme and tone
+            4. Creates compelling scenes and dialogue
+            5. Advances the plot meaningfully
+            6. Length: {target_length} (short: 300-500 words, medium: 500-800 words, long: 800-1200 words)"""),
+            ("human", """Chapter Title: {chapter_title}
+            
+Story Context/Previous Chapters:
+{story_context}
+
+Theme: {theme}
+
+Characters:
+{characters}
+
+Target Length: {target_length}
+
+Write the complete chapter content:""")
+        ])
+        
+        chain = (
+            {
+                "chapter_title": lambda x: x["chapter_title"],
+                "story_context": lambda x: x["story_context"],
+                "theme": lambda x: x["theme"],
+                "characters": lambda x: self._format_characters(x["characters"]),
+                "target_length": lambda x: x["target_length"]
+            }
+            | prompt_template
+            | self.llm
+            | self.output_parser
+        )
+        
+        result = chain.invoke({
+            "chapter_title": chapter_title,
+            "story_context": story_context,
+            "theme": theme.value,
+            "characters": characters,
+            "target_length": target_length
+        })
+        
+        return result.strip()
 
 def initialize_llm_service():
     """Initialize the LLM service with Groq API key"""
