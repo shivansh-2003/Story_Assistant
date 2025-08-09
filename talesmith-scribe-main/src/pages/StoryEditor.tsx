@@ -12,7 +12,8 @@ import { ArrowLeft, Save, Eye, FileText, Users, Settings, Brain, Download, Netwo
 import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
 import { PDFExportDialog } from '@/components/PDFExportDialog';
-import { storyAPI, chapterAPI, characterAPI, Story, Chapter, ChapterStatus, StoryTheme, PersonalityType } from '@/lib/api';
+import { storyAPI, chapterAPI, characterAPI, relationshipAPI, Story, Chapter, ChapterStatus, StoryTheme, PersonalityType, Relationship } from '@/lib/api';
+import { RelationshipManagementDialog } from '@/components/RelationshipManagementDialog';
 
 const StoryEditor = () => {
   const navigate = useNavigate();
@@ -29,7 +30,9 @@ const StoryEditor = () => {
   const [aiProcessing, setAiProcessing] = useState(false);
   const [showAddCharacterDialog, setShowAddCharacterDialog] = useState(false);
   const [showIncludeCharacterDialog, setShowIncludeCharacterDialog] = useState(false);
+  const [showRelationshipDialog, setShowRelationshipDialog] = useState(false);
   const [allCharacters, setAllCharacters] = useState<any[]>([]);
+  const [relationships, setRelationships] = useState<Relationship[]>([]);
   const [newCharacter, setNewCharacter] = useState({
     name: '',
     age: 25,
@@ -54,15 +57,17 @@ const StoryEditor = () => {
     
     try {
       setLoading(true);
-      const [storyResponse, chaptersResponse, charactersResponse] = await Promise.all([
+      const [storyResponse, chaptersResponse, charactersResponse, relationshipsResponse] = await Promise.all([
         storyAPI.getById(id),
         chapterAPI.getAll(id),
-        characterAPI.getAll()
+        characterAPI.getAll(),
+        relationshipAPI.getAll()
       ]);
       
       setStory(storyResponse.story);
       setChapters(chaptersResponse.chapters);
       setAllCharacters(charactersResponse.characters || []);
+      setRelationships(relationshipsResponse.relationships || []);
       
       if (chaptersResponse.chapters.length > 0) {
         setCurrentChapter(chaptersResponse.chapters[0]);
@@ -104,17 +109,6 @@ const StoryEditor = () => {
       motivation: 'To maintain absolute control over the kingdom.',
       archetype: 'The Tyrant',
       relationships: []
-    }
-  ]);
-
-  const [relationships] = useState([
-    {
-      id: '1',
-      character1Id: '1',
-      character2Id: '2',
-      type: 'Enemy',
-      description: 'Elena seeks to overthrow Varian\'s corrupt rule',
-      strength: 8
     }
   ]);
 
@@ -373,6 +367,16 @@ const StoryEditor = () => {
         description: "Failed to add character to story. Please try again.",
         variant: "destructive"
       });
+    }
+  };
+
+  const handleRelationshipChange = async () => {
+    // Reload relationships when they change
+    try {
+      const relationshipsResponse = await relationshipAPI.getAll();
+      setRelationships(relationshipsResponse.relationships || []);
+    } catch (error) {
+      console.error('Failed to reload relationships:', error);
     }
   };
 
@@ -673,6 +677,14 @@ const StoryEditor = () => {
                           <Button 
                             variant="outline"
                             size="sm"
+                            onClick={() => setShowRelationshipDialog(true)}
+                          >
+                            <Network className="w-4 h-4 mr-2" />
+                            View Relationships
+                          </Button>
+                          <Button 
+                            variant="outline"
+                            size="sm"
                             onClick={() => navigate('/characters')}
                           >
                             Manage All
@@ -824,7 +836,10 @@ const StoryEditor = () => {
         open={showExportDialog}
         onOpenChange={setShowExportDialog}
         characters={story?.characters || []}
-        relationships={[]}
+        relationships={relationships.filter(rel => 
+          story?.characters.some(char => char.id === rel.character1_id) &&
+          story?.characters.some(char => char.id === rel.character2_id)
+        ) || []}
         story={story ? {
           title: story.title || 'Untitled Story',
           genre: story.theme,
@@ -1003,6 +1018,15 @@ const StoryEditor = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Relationship Management Dialog */}
+      <RelationshipManagementDialog
+        open={showRelationshipDialog}
+        onOpenChange={setShowRelationshipDialog}
+        characters={story?.characters || []}
+        storyId={id}
+        onRelationshipChange={handleRelationshipChange}
+      />
     </div>
   );
 };

@@ -13,7 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import CharacterCard from '@/components/CharacterCard';
 import RelationshipMapping from '@/components/RelationshipMapping';
 import { exportCharacterProfile, exportAllCharacters } from '@/utils/pdfExport';
-import { characterAPI, Character, PersonalityType } from '@/lib/api';
+import { characterAPI, relationshipAPI, Character, PersonalityType, Relationship } from '@/lib/api';
+import { RelationshipManagementDialog } from '@/components/RelationshipManagementDialog';
 
 // Remove duplicate interface since it's imported from api.ts
 
@@ -26,6 +27,8 @@ const Characters = () => {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showRelationshipMapping, setShowRelationshipMapping] = useState(false);
+  const [showRelationshipDialog, setShowRelationshipDialog] = useState(false);
+  const [relationships, setRelationships] = useState<Relationship[]>([]);
   const [newCharacter, setNewCharacter] = useState<Partial<Character>>({
     name: '',
     age: 0,
@@ -47,8 +50,12 @@ const Characters = () => {
   const loadCharacters = async () => {
     try {
       setLoading(true);
-      const response = await characterAPI.getAll();
-      setCharacters(response.characters);
+      const [charactersResponse, relationshipsResponse] = await Promise.all([
+        characterAPI.getAll(),
+        relationshipAPI.getAll()
+      ]);
+      setCharacters(charactersResponse.characters);
+      setRelationships(relationshipsResponse.relationships || []);
     } catch (error) {
       console.error('Failed to load characters:', error);
       toast({
@@ -465,13 +472,22 @@ const Characters = () => {
                 <p className="text-muted-foreground mb-4">
                   Visualize connections between your characters and develop complex relationships.
                 </p>
-                <Button 
-                  variant="fantasy" 
-                  size="sm"
-                  onClick={() => setShowRelationshipMapping(true)}
-                >
-                  Build Relationships
-                </Button>
+                <div className="space-x-2">
+                  <Button 
+                    variant="fantasy" 
+                    size="sm"
+                    onClick={() => setShowRelationshipDialog(true)}
+                  >
+                    Manage Relationships
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setShowRelationshipMapping(true)}
+                  >
+                    View Map
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 
@@ -504,6 +520,14 @@ const Characters = () => {
           </div>
         )}
       </div>
+
+      {/* Relationship Management Dialog */}
+      <RelationshipManagementDialog
+        open={showRelationshipDialog}
+        onOpenChange={setShowRelationshipDialog}
+        characters={characters}
+        onRelationshipChange={loadCharacters}
+      />
     </div>
   );
 };

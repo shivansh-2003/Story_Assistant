@@ -8,13 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { X, Plus, Heart, Sword, Users, Crown, Shield } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-
-interface Character {
-  id: string;
-  name: string;
-  role: string;
-  archetype: string;
-}
+import { Character } from '@/lib/api';
 
 interface Relationship {
   id: string;

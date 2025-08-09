@@ -12,7 +12,8 @@ import { ArrowLeft, Sparkles, BookOpen, Save, Eye, Users, Network, Loader2 } fro
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
 import RelationshipMapping from '@/components/RelationshipMapping';
-import { characterAPI, storyAPI, Character, StoryTheme } from '@/lib/api';
+import { RelationshipManagementDialog } from '@/components/RelationshipManagementDialog';
+import { characterAPI, storyAPI, relationshipAPI, Character, StoryTheme, Relationship } from '@/lib/api';
 
 const CreateStory = () => {
   const navigate = useNavigate();
@@ -29,7 +30,10 @@ const CreateStory = () => {
   });
 
   const [showRelationshipMapping, setShowRelationshipMapping] = useState(false);
+  const [showRelationshipDialog, setShowRelationshipDialog] = useState(false);
   const [availableCharacters, setAvailableCharacters] = useState<Character[]>([]);
+  const [relationships, setRelationships] = useState<Relationship[]>([]);
+  const [selectedRelationships, setSelectedRelationships] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
 
@@ -41,8 +45,12 @@ const CreateStory = () => {
   const loadCharacters = async () => {
     try {
       setLoading(true);
-      const response = await characterAPI.getAll();
-      setAvailableCharacters(response.characters);
+      const [charactersResponse, relationshipsResponse] = await Promise.all([
+        characterAPI.getAll(),
+        relationshipAPI.getAll()
+      ]);
+      setAvailableCharacters(charactersResponse.characters);
+      setRelationships(relationshipsResponse.relationships || []);
     } catch (error) {
       console.error('Failed to load characters:', error);
       toast({
@@ -119,11 +127,18 @@ const CreateStory = () => {
       // Create story data
       const storyRequest = {
         base_idea: `${storyData.title}: ${storyData.description}. ${storyData.premise ? `Premise: ${storyData.premise}` : ''} ${storyData.setting ? `Setting: ${storyData.setting}` : ''}`,
-        theme: storyData.genre || StoryTheme.ADVENTURE,
+        theme: (storyData.genre as StoryTheme) || StoryTheme.ADVENTURE,
         characters: selectedChars
       };
 
       const response = await storyAPI.create(storyRequest);
+      
+      // If we have selected relationships, we need to associate them with the story
+      // Note: This is conceptual - relationships are already global but we can track which ones are relevant
+      if (selectedRelationships.length > 0) {
+        console.log('Story created with relationships:', selectedRelationships);
+        // The relationships are already stored globally and will be filtered by story characters
+      }
       
       toast({
         title: "Story Created!",
@@ -386,16 +401,104 @@ const CreateStory = () => {
                         ) : null;
                       })}
                     </div>
-                    <div className="mt-2">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => setShowRelationshipMapping(true)}
-                        className="text-xs h-auto p-1"
-                      >
-                        <Network className="w-3 h-3 mr-1" />
-                        View Character Relationships
-                      </Button>
+                    
+                    {/* Show selected relationships */}
+                    {selectedRelationships.length > 0 && (
+                      <div className="mt-3">
+                        <h5 className="font-medium text-xs text-muted-foreground mb-1">Selected Relationships</h5>
+                        <div className="flex flex-wrap gap-1">
+                          {selectedRelationships.map((relId) => {
+                            const relationship = relationships.find(r => r.id === relId);
+                            if (!relationship) return null;
+                            const char1 = availableCharacters.find(c => c.id === relationship.character1_id);
+                            const char2 = availableCharacters.find(c => c.id === relationship.character2_id);
+                            return (
+                              <Badge key={relId} variant="secondary" className="text-xs">
+                                {char1?.name} ↔ {char2?.name} ({relationship.type})
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="mt-2 space-y-2">
+                      <div className="flex space-x-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => setShowRelationshipDialog(true)}
+                          className="text-xs h-auto p-1"
+                        >
+                          <Network className="w-3 h-3 mr-1" />
+                          Manage Relationships
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => setShowRelationshipMapping(true)}
+                          className="text-xs h-auto p-1"
+                        >
+                          <Eye className="w-3 h-3 mr-1" />
+                          View Map
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Existing Relationships Selection */}
+                {storyData.selectedCharacters.length > 1 && relationships.length > 0 && (
+                  <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                    <h4 className="font-medium text-sm text-muted-foreground mb-2">Include Existing Relationships</h4>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Select relationships between your chosen characters to include in this story.
+                    </p>
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {relationships
+                        .filter(rel => {
+                          const char1Selected = storyData.selectedCharacters.includes(rel.character1_id);
+                          const char2Selected = storyData.selectedCharacters.includes(rel.character2_id);
+                          return char1Selected && char2Selected;
+                        })
+                        .map((relationship) => {
+                          const char1 = availableCharacters.find(c => c.id === relationship.character1_id);
+                          const char2 = availableCharacters.find(c => c.id === relationship.character2_id);
+                          return (
+                            <div key={relationship.id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={relationship.id}
+                                checked={selectedRelationships.includes(relationship.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedRelationships(prev => [...prev, relationship.id]);
+                                  } else {
+                                    setSelectedRelationships(prev => prev.filter(id => id !== relationship.id));
+                                  }
+                                }}
+                              />
+                              <Label htmlFor={relationship.id} className="text-xs flex-1 cursor-pointer">
+                                <div className="flex items-center space-x-1">
+                                  <span>{char1?.name || 'Unknown'}</span>
+                                  <span className="text-muted-foreground">↔</span>
+                                  <span>{char2?.name || 'Unknown'}</span>
+                                  <Badge variant="outline" className="text-xs ml-1">
+                                    {relationship.type}
+                                  </Badge>
+                                </div>
+                              </Label>
+                            </div>
+                          );
+                        })}
+                      {relationships.filter(rel => {
+                        const char1Selected = storyData.selectedCharacters.includes(rel.character1_id);
+                        const char2Selected = storyData.selectedCharacters.includes(rel.character2_id);
+                        return char1Selected && char2Selected;
+                      }).length === 0 && (
+                        <p className="text-xs text-muted-foreground italic">
+                          No existing relationships found between selected characters.
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -441,6 +544,14 @@ const CreateStory = () => {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Relationship Management Dialog */}
+      <RelationshipManagementDialog
+        open={showRelationshipDialog}
+        onOpenChange={setShowRelationshipDialog}
+        characters={availableCharacters.filter(char => storyData.selectedCharacters.includes(char.id!))}
+        onRelationshipChange={loadCharacters}
+      />
     </div>
   );
 };
