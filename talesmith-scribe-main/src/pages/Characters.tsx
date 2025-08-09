@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,56 +7,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, Users, Sparkles, Brain, Eye, Edit, Trash2, Crown, Heart, Sword, Star, Download, FileUser } from 'lucide-react';
+import { ArrowLeft, Plus, Users, Sparkles, Brain, Eye, Edit, Trash2, Crown, Heart, Sword, Star, Download, FileUser, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
 import CharacterCard from '@/components/CharacterCard';
 import RelationshipMapping from '@/components/RelationshipMapping';
 import { exportCharacterProfile, exportAllCharacters } from '@/utils/pdfExport';
+import { characterAPI, Character, PersonalityType } from '@/lib/api';
 
-interface Character {
-  id: string;
-  name: string;
-  age: number;
-  role: string;
-  personality: string;
-  background: string;
-  appearance: string;
-  motivation: string;
-  archetype: string;
-  relationships: string[];
-}
+// Remove duplicate interface since it's imported from api.ts
 
 const Characters = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [characters, setCharacters] = useState<Character[]>([
-    {
-      id: '1',
-      name: 'Elena Shadowheart',
-      age: 28,
-      role: 'Protagonist',
-      personality: 'Brave, conflicted, determined',
-      background: 'Former royal guard turned rebel',
-      appearance: 'Tall, dark hair, piercing green eyes, scar across left cheek',
-      motivation: 'To restore justice to the realm',
-      archetype: 'The Hero',
-      relationships: ['Marcus (mentor)', 'Kael (love interest)']
-    },
-    {
-      id: '2',
-      name: 'Lord Varian',
-      age: 45,
-      role: 'Antagonist',
-      personality: 'Cunning, ruthless, charismatic',
-      background: 'Noble who seized power through manipulation',
-      appearance: 'Distinguished, silver hair, cold blue eyes',
-      motivation: 'To maintain absolute control',
-      archetype: 'The Tyrant',
-      relationships: ['Elena (nemesis)', 'Council (allies)']
-    }
-  ]);
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showRelationshipMapping, setShowRelationshipMapping] = useState(false);
@@ -72,6 +38,28 @@ const Characters = () => {
     relationships: []
   });
 
+  // Load characters on component mount
+  useEffect(() => {
+    loadCharacters();
+  }, []);
+
+  const loadCharacters = async () => {
+    try {
+      setLoading(true);
+      const response = await characterAPI.getAll();
+      setCharacters(response.characters);
+    } catch (error) {
+      console.error('Failed to load characters:', error);
+      toast({
+        title: "Error Loading Characters",
+        description: "Failed to load characters from the server.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const archetypes = [
     'The Hero', 'The Mentor', 'The Ally', 'The Guardian', 'The Trickster',
     'The Shapeshifter', 'The Shadow', 'The Tyrant', 'The Innocent', 'The Explorer'
@@ -83,35 +71,46 @@ const Characters = () => {
     setNewCharacter(prev => ({ ...prev, [field]: value }));
   };
 
-  const generateCharacter = () => {
-    // AI-powered character generation (mock implementation)
-    const names = ['Aria Moonwhisper', 'Thorne Blackstone', 'Lyra Stardust', 'Gareth Ironwill', 'Seraphina Brightblade'];
-    const personalities = ['Mysterious and wise', 'Bold and impulsive', 'Gentle but fierce', 'Loyal and steadfast', 'Cunning and ambitious'];
-    const backgrounds = ['Orphaned at birth, raised by wolves', 'Former assassin seeking redemption', 'Lost heir to a forgotten kingdom', 'Scholar of ancient magics', 'Wandering bard with secrets'];
-    
-    const randomName = names[Math.floor(Math.random() * names.length)];
-    const randomPersonality = personalities[Math.floor(Math.random() * personalities.length)];
-    const randomBackground = backgrounds[Math.floor(Math.random() * backgrounds.length)];
-    
-    setNewCharacter({
-      name: randomName,
-      age: Math.floor(Math.random() * 50) + 18,
-      personality: randomPersonality,
-      background: randomBackground,
-      role: roles[Math.floor(Math.random() * roles.length)],
-      archetype: archetypes[Math.floor(Math.random() * archetypes.length)],
-      appearance: 'Generate appearance based on name and background',
-      motivation: 'AI-generated motivation based on personality',
-      relationships: []
-    });
+  const generateCharacter = async () => {
+    try {
+      // Generate a basic character structure first
+      const names = ['Aria Moonwhisper', 'Thorne Blackstone', 'Lyra Stardust', 'Gareth Ironwill', 'Seraphina Brightblade'];
+      const personalities = ['Mysterious and wise', 'Bold and impulsive', 'Gentle but fierce', 'Loyal and steadfast', 'Cunning and ambitious'];
+      const backgrounds = ['Orphaned at birth, raised by wolves', 'Former assassin seeking redemption', 'Lost heir to a forgotten kingdom', 'Scholar of ancient magics', 'Wandering bard with secrets'];
+      
+      const randomName = names[Math.floor(Math.random() * names.length)];
+      const randomPersonality = personalities[Math.floor(Math.random() * personalities.length)];
+      const randomBackground = backgrounds[Math.floor(Math.random() * backgrounds.length)];
+      
+      const baseCharacter: Partial<Character> = {
+        name: randomName,
+        age: Math.floor(Math.random() * 50) + 18,
+        personality: randomPersonality,
+        background: randomBackground,
+        role: roles[Math.floor(Math.random() * roles.length)],
+        archetype: archetypes[Math.floor(Math.random() * archetypes.length)],
+        appearance: 'Generate appearance based on name and background',
+        motivation: 'AI-generated motivation based on personality',
+        relationships: []
+      };
+      
+      setNewCharacter(baseCharacter);
 
-    toast({
-      title: "Character Generated!",
-      description: "AI has created a new character for you to customize.",
-    });
+      toast({
+        title: "Character Generated!",
+        description: "AI has created a new character for you to customize.",
+      });
+    } catch (error) {
+      console.error('Character generation failed:', error);
+      toast({
+        title: "Generation Failed",
+        description: "Failed to generate character. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const saveCharacter = () => {
+  const saveCharacter = async () => {
     if (!newCharacter.name?.trim()) {
       toast({
         title: "Name Required",
@@ -121,38 +120,62 @@ const Characters = () => {
       return;
     }
 
-    const character: Character = {
-      id: Date.now().toString(),
-      name: newCharacter.name || '',
-      age: newCharacter.age || 25,
-      role: newCharacter.role || 'Supporting Character',
-      personality: newCharacter.personality || '',
-      background: newCharacter.background || '',
-      appearance: newCharacter.appearance || '',
-      motivation: newCharacter.motivation || '',
-      archetype: newCharacter.archetype || 'The Explorer',
-      relationships: newCharacter.relationships || []
-    };
+    try {
+      const characterData = {
+        name: newCharacter.name || '',
+        age: newCharacter.age || 25,
+        role: newCharacter.role || 'Supporting Character',
+        personality: newCharacter.personality || '',
+        background: newCharacter.background || '',
+        appearance: newCharacter.appearance || '',
+        motivation: newCharacter.motivation || '',
+        archetype: newCharacter.archetype || 'The Explorer',
+        relationships: newCharacter.relationships || [],
+        primary_trait: PersonalityType.KIND // Default trait
+      };
 
-    setCharacters(prev => [...prev, character]);
-    setNewCharacter({
-      name: '', age: 0, role: '', personality: '', background: '',
-      appearance: '', motivation: '', archetype: '', relationships: []
-    });
-    setIsDialogOpen(false);
+      const response = await characterAPI.create(characterData);
+      
+      // Update local state with the new character
+      setCharacters(prev => [...prev, response.character]);
+      
+      // Reset form
+      setNewCharacter({
+        name: '', age: 0, role: '', personality: '', background: '',
+        appearance: '', motivation: '', archetype: '', relationships: []
+      });
+      setIsDialogOpen(false);
 
-    toast({
-      title: "Character Created!",
-      description: "Your new character has been added to your collection.",
-    });
+      toast({
+        title: "Character Created!",
+        description: "Your new character has been added to your collection.",
+      });
+    } catch (error) {
+      console.error('Failed to create character:', error);
+      toast({
+        title: "Creation Failed",
+        description: "Failed to create character. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const deleteCharacter = (id: string) => {
-    setCharacters(prev => prev.filter(char => char.id !== id));
-    toast({
-      title: "Character Deleted",
-      description: "Character has been removed from your collection.",
-    });
+  const deleteCharacter = async (id: string) => {
+    try {
+      await characterAPI.delete(id);
+      setCharacters(prev => prev.filter(char => char.id !== id));
+      toast({
+        title: "Character Deleted",
+        description: "Character has been removed from your collection.",
+      });
+    } catch (error) {
+      console.error('Failed to delete character:', error);
+      toast({
+        title: "Deletion Failed",
+        description: "Failed to delete character. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const getArchetypeIcon = (archetype: string) => {
@@ -364,6 +387,12 @@ const Characters = () => {
             characters={characters}
             onClose={() => setShowRelationshipMapping(false)}
           />
+        ) : loading ? (
+          <div className="text-center py-16">
+            <Loader2 className="w-16 h-16 text-primary mx-auto mb-4 animate-spin" />
+            <h2 className="text-2xl font-serif font-bold mb-2">Loading Characters</h2>
+            <p className="text-muted-foreground">Fetching your character collection...</p>
+          </div>
         ) : characters.length === 0 ? (
           <div className="text-center py-16">
             <Users className="w-16 h-16 text-muted-foreground mx-auto mb-4" />

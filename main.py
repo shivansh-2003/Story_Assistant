@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import Response
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import os
 from typing import List, Optional
@@ -68,6 +69,21 @@ app = FastAPI(
     title="Interactive Storytelling API", 
     version="1.0.0",
     lifespan=lifespan
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:8080",  # Vite dev server
+        "http://localhost:3000",  # React dev server
+        "http://127.0.0.1:8080",
+        "http://127.0.0.1:3000",
+        "https://story-assistant.onrender.com",  # Your deployed frontend (if any)
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
 )
 
 # Character Management Endpoints

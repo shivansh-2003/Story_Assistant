@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, BookOpen, Users, FileText, Palette, Brain, Wand2, Star, Heart, Sword, Crown } from 'lucide-react';
+import HealthCheck from '@/components/HealthCheck';
 
 interface StoryProject {
   id: string;
@@ -161,6 +162,8 @@ const StorytellingDashboard = () => {
 
       {/* Main Dashboard Content */}
       <div className="container mx-auto px-4 py-12">
+        {/* API Health Check */}
+        <HealthCheck />
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
           <Card 

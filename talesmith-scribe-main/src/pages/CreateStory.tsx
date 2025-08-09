@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,10 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Sparkles, BookOpen, Save, Eye, Users, Network } from 'lucide-react';
+import { ArrowLeft, Sparkles, BookOpen, Save, Eye, Users, Network, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
 import RelationshipMapping from '@/components/RelationshipMapping';
+import { characterAPI, storyAPI, Character, StoryTheme } from '@/lib/api';
 
 const CreateStory = () => {
   const navigate = useNavigate();
@@ -28,22 +29,31 @@ const CreateStory = () => {
   });
 
   const [showRelationshipMapping, setShowRelationshipMapping] = useState(false);
+  const [availableCharacters, setAvailableCharacters] = useState<Character[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
 
-  // Mock characters data - in a real app, this would come from a database or context
-  const [availableCharacters] = useState([
-    {
-      id: '1',
-      name: 'Elena Shadowheart',
-      role: 'Protagonist',
-      archetype: 'The Hero'
-    },
-    {
-      id: '2',
-      name: 'Lord Varian',
-      role: 'Antagonist',
-      archetype: 'The Tyrant'
+  // Load characters on component mount
+  useEffect(() => {
+    loadCharacters();
+  }, []);
+
+  const loadCharacters = async () => {
+    try {
+      setLoading(true);
+      const response = await characterAPI.getAll();
+      setAvailableCharacters(response.characters);
+    } catch (error) {
+      console.error('Failed to load characters:', error);
+      toast({
+        title: "Error Loading Characters",
+        description: "Failed to load characters from the server.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
 
   const genres = [
     'Fantasy', 'Science Fiction', 'Mystery', 'Romance', 'Thriller', 
@@ -84,7 +94,7 @@ const CreateStory = () => {
     });
   };
 
-  const handleCreateStory = () => {
+  const handleCreateStory = async () => {
     if (!storyData.title.trim() || !storyData.genre || !storyData.description.trim()) {
       toast({
         title: "Missing Information",
@@ -94,14 +104,41 @@ const CreateStory = () => {
       return;
     }
 
-    // Here you would typically create the story in the database
-    toast({
-      title: "Story Created!",
-      description: "Your new story has been created successfully.",
-    });
-    
-    // Navigate to story editor (we'll create this later)
-    navigate('/');
+    try {
+      setCreating(true);
+      
+      // Get selected characters
+      const selectedChars = availableCharacters.filter(char => 
+        storyData.selectedCharacters.includes(char.id!)
+      );
+
+      // Create story data
+      const storyRequest = {
+        base_idea: `${storyData.title}: ${storyData.description}. ${storyData.premise ? `Premise: ${storyData.premise}` : ''} ${storyData.setting ? `Setting: ${storyData.setting}` : ''}`,
+        theme: (storyData.genre as StoryTheme) || StoryTheme.ADVENTURE,
+        characters: selectedChars
+      };
+
+      const response = await storyAPI.create(storyRequest);
+      
+      toast({
+        title: "Story Created!",
+        description: "Your new story has been created successfully.",
+      });
+      
+      // Navigate to story editor
+      navigate(`/story/${response.story.id}`);
+      
+    } catch (error) {
+      console.error('Failed to create story:', error);
+      toast({
+        title: "Creation Failed",
+        description: "Failed to create story. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
@@ -130,9 +167,13 @@ const CreateStory = () => {
                 <Save className="w-4 h-4 mr-2" />
                 Save Draft
               </Button>
-              <Button variant="hero" onClick={handleCreateStory}>
-                <BookOpen className="w-4 h-4 mr-2" />
-                Create Story
+              <Button variant="hero" onClick={handleCreateStory} disabled={creating}>
+                {creating ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <BookOpen className="w-4 h-4 mr-2" />
+                )}
+                {creating ? 'Creating Story...' : 'Create Story'}
               </Button>
             </div>
           </div>
@@ -254,23 +295,28 @@ const CreateStory = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    {availableCharacters.length > 0 ? (
+                    {loading ? (
+                      <div className="text-center py-4">
+                        <Loader2 className="w-6 h-6 mx-auto animate-spin" />
+                        <p className="text-sm text-muted-foreground mt-2">Loading characters...</p>
+                      </div>
+                    ) : availableCharacters.length > 0 ? (
                       availableCharacters.map((character) => (
                         <div key={character.id} className="flex items-center space-x-2">
                           <Checkbox
                             id={character.id}
-                            checked={storyData.selectedCharacters.includes(character.id)}
-                            onCheckedChange={(checked) => handleCharacterSelection(character.id, checked as boolean)}
+                            checked={storyData.selectedCharacters.includes(character.id!)}
+                            onCheckedChange={(checked) => handleCharacterSelection(character.id!, checked as boolean)}
                           />
                           <Label htmlFor={character.id} className="text-sm flex-1 cursor-pointer">
                             <div className="flex items-center justify-between">
                               <span>{character.name}</span>
                               <div className="flex items-center space-x-2">
                                 <Badge variant="outline" className="text-xs">
-                                  {character.role}
+                                  {character.role || 'Character'}
                                 </Badge>
                                 <span className="text-xs text-muted-foreground">
-                                  {character.archetype}
+                                  {character.archetype || 'Unknown'}
                                 </span>
                               </div>
                             </div>
