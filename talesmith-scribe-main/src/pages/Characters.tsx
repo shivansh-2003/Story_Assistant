@@ -35,7 +35,8 @@ const Characters = () => {
     appearance: '',
     motivation: '',
     archetype: '',
-    relationships: []
+    relationships: [],
+    primary_trait: undefined
   });
 
   // Load characters on component mount
@@ -66,6 +67,16 @@ const Characters = () => {
   ];
 
   const roles = ['Protagonist', 'Antagonist', 'Supporting Character', 'Minor Character', 'Love Interest'];
+  
+  const personalityTraits = [
+    { value: PersonalityType.BRAVE, label: 'Brave' },
+    { value: PersonalityType.CLEVER, label: 'Clever' },
+    { value: PersonalityType.SHY, label: 'Shy' },
+    { value: PersonalityType.AGGRESSIVE, label: 'Aggressive' },
+    { value: PersonalityType.WISE, label: 'Wise' },
+    { value: PersonalityType.COMPASSIONATE, label: 'Compassionate' },
+    { value: PersonalityType.CUNNING, label: 'Cunning' }
+  ];
 
   const handleInputChange = (field: keyof Character, value: any) => {
     setNewCharacter(prev => ({ ...prev, [field]: value }));
@@ -120,6 +131,15 @@ const Characters = () => {
       return;
     }
 
+    if (!newCharacter.primary_trait) {
+      toast({
+        title: "Primary Trait Required",
+        description: "Please select a primary personality trait.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       const characterData = {
         name: newCharacter.name || '',
@@ -131,7 +151,7 @@ const Characters = () => {
         motivation: newCharacter.motivation || '',
         archetype: newCharacter.archetype || 'The Explorer',
         relationships: newCharacter.relationships || [],
-        primary_trait: PersonalityType.KIND // Default trait
+        primary_trait: newCharacter.primary_trait || PersonalityType.COMPASSIONATE
       };
 
       const response = await characterAPI.create(characterData);
@@ -142,7 +162,8 @@ const Characters = () => {
       // Reset form
       setNewCharacter({
         name: '', age: 0, role: '', personality: '', background: '',
-        appearance: '', motivation: '', archetype: '', relationships: []
+        appearance: '', motivation: '', archetype: '', relationships: [],
+        primary_trait: undefined
       });
       setIsDialogOpen(false);
 
@@ -318,6 +339,20 @@ const Characters = () => {
                           </SelectContent>
                         </Select>
                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="char-primary-trait">Primary Personality Trait *</Label>
+                      <Select onValueChange={(value) => handleInputChange('primary_trait', value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select primary trait" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {personalityTraits.map((trait) => (
+                            <SelectItem key={trait.value} value={trait.value}>{trait.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="space-y-2">

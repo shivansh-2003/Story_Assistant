@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, BookOpen, Users, FileText, Palette, Brain, Wand2, Star, Heart, Sword, Crown } from 'lucide-react';
+import { Sparkles, BookOpen, Users, FileText, Palette, Brain, Wand2, Star, Heart, Sword, Crown, Loader2, Trash2 } from 'lucide-react';
 import HealthCheck from '@/components/HealthCheck';
+import testApiConnection from '@/utils/apiTest';
+import { storyAPI, characterAPI, Story } from '@/lib/api';
+import { PDFExportDialog } from './PDFExportDialog';
 
 interface StoryProject {
   id: string;
@@ -20,41 +23,58 @@ interface StoryProject {
 
 const StorytellingDashboard = () => {
   const navigate = useNavigate();
-  const recentProjects: StoryProject[] = [
-    {
-      id: '1',
-      title: 'The Crystal Chronicles',
-      genre: 'Fantasy',
-      description: 'A magical journey through enchanted realms',
-      characters: 8,
-      chapters: 12,
-      lastUpdated: '2 hours ago',
-      status: 'in-progress',
-      color: 'fantasy'
-    },
-    {
-      id: '2',
-      title: 'Midnight Secrets',
-      genre: 'Mystery',
-      description: 'A detective unravels dark mysteries in the city',
-      characters: 5,
-      chapters: 8,
-      lastUpdated: '1 day ago',
-      status: 'draft',
-      color: 'mystery'
-    },
-    {
-      id: '3',
-      title: 'Hearts Across Time',
-      genre: 'Romance',
-      description: 'Love transcends time and space',
-      characters: 4,
-      chapters: 15,
-      lastUpdated: '3 days ago',
-      status: 'completed',
-      color: 'romance'
+  const [stories, setStories] = useState<Story[]>([]);
+  const [loadingStories, setLoadingStories] = useState(true);
+  const [showPDFDialog, setShowPDFDialog] = useState(false);
+  const [allCharacters, setAllCharacters] = useState<any[]>([]);
+  const [deletingStoryId, setDeletingStoryId] = useState<string | null>(null);
+
+  // Load stories and characters on component mount
+  useEffect(() => {
+    loadStories();
+    loadCharacters();
+  }, []);
+
+  const loadStories = async () => {
+    try {
+      setLoadingStories(true);
+      const response = await storyAPI.getAll();
+      // Since the API returns story IDs as strings, we need to fetch each story
+      const storyPromises = response.stories.map(storyId => storyAPI.getById(storyId));
+      const storyDetails = await Promise.all(storyPromises);
+      setStories(storyDetails.map(detail => detail.story));
+    } catch (error) {
+      console.error('Failed to load stories:', error);
+      // Keep empty array if loading fails
+      setStories([]);
+    } finally {
+      setLoadingStories(false);
     }
-  ];
+  };
+
+  const loadCharacters = async () => {
+    try {
+      const response = await characterAPI.getAll();
+      setAllCharacters(response.characters || []);
+    } catch (error) {
+      console.error('Failed to load characters:', error);
+      setAllCharacters([]);
+    }
+  };
+
+  const deleteStory = async (storyId: string) => {
+    try {
+      setDeletingStoryId(storyId);
+      await storyAPI.delete(storyId);
+      setStories(prev => prev.filter(story => story.id !== storyId));
+      // Note: We'd need a toast notification here if available
+    } catch (error) {
+      console.error('Failed to delete story:', error);
+      // Note: We'd need error toast here if available
+    } finally {
+      setDeletingStoryId(null);
+    }
+  };
 
   const getGenreIcon = (genre: string) => {
     switch (genre.toLowerCase()) {
@@ -188,7 +208,10 @@ const StorytellingDashboard = () => {
             </CardContent>
           </Card>
           
-          <Card className="bg-card/50 backdrop-blur-sm border-accent/20 hover:shadow-mystical transition-all duration-300 hover:scale-105">
+          <Card 
+            className="bg-card/50 backdrop-blur-sm border-accent/20 hover:shadow-mystical transition-all duration-300 hover:scale-105 cursor-pointer"
+            onClick={() => setShowPDFDialog(true)}
+          >
             <CardContent className="p-6 text-center">
               <Palette className="w-12 h-12 text-accent mx-auto mb-4" />
               <h3 className="font-semibold font-sans">PDF Designer</h3>
@@ -215,63 +238,108 @@ const StorytellingDashboard = () => {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 animate-fade-in">
-            {recentProjects.map((project, index) => (
-              <Card 
-                key={project.id} 
-                className="bg-card/50 backdrop-blur-sm hover:shadow-elegant transition-all duration-300 hover:scale-105 group cursor-pointer animate-scale-in"
-                style={{ animationDelay: `${index * 100}ms` }}
-                onClick={() => navigate(`/story/${project.id}`)}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center space-x-2">
-                      {getGenreIcon(project.genre)}
-                      <Badge variant="outline" className={getStatusColor(project.status)}>
-                        {project.status}
-                      </Badge>
+          {loadingStories ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <span className="ml-2 text-muted-foreground">Loading your stories...</span>
+            </div>
+          ) : stories.length === 0 ? (
+            <div className="text-center py-16">
+              <BookOpen className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-xl font-serif font-bold mb-2">No Stories Yet</h3>
+              <p className="text-muted-foreground mb-6">Start creating your first story to see it here</p>
+              <Button variant="hero" onClick={() => navigate('/create-story')}>
+                <Wand2 className="w-4 h-4 mr-2" />
+                Create Your First Story
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 animate-fade-in">
+              {stories.map((story, index) => (
+                <Card 
+                  key={story.id} 
+                  className="bg-card/50 backdrop-blur-sm hover:shadow-elegant transition-all duration-300 hover:scale-105 group cursor-pointer animate-scale-in"
+                  style={{ animationDelay: `${index * 100}ms` }}
+                  onClick={() => navigate(`/story/${story.id}`)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center space-x-2">
+                        {getGenreIcon(story.theme)}
+                        <Badge variant="outline" className={getStatusColor(story.is_draft ? 'draft' : story.is_completed ? 'completed' : 'in-progress')}>
+                          {story.is_draft ? 'draft' : story.is_completed ? 'completed' : 'in-progress'}
+                        </Badge>
+                      </div>
+                      <Star className="w-4 h-4 text-muted-foreground group-hover:text-secondary transition-colors" />
                     </div>
-                    <Star className="w-4 h-4 text-muted-foreground group-hover:text-secondary transition-colors" />
-                  </div>
-                  <CardTitle className="font-serif text-xl group-hover:text-primary transition-colors">
-                    {project.title}
-                  </CardTitle>
-                  <CardDescription className="text-sm">
-                    {project.description}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
-                    <span className="flex items-center space-x-1">
-                      <Users className="w-3 h-3" />
-                      <span>{project.characters} characters</span>
-                    </span>
-                    <span className="flex items-center space-x-1">
-                      <FileText className="w-3 h-3" />
-                      <span>{project.chapters} chapters</span>
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      Updated {project.lastUpdated}
-                    </span>
-                    <div className="flex space-x-2">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => navigate(`/story/${project.id}`)}
-                      >
-                        Edit
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        Export
-                      </Button>
+                    <CardTitle className="font-serif text-xl group-hover:text-primary transition-colors">
+                      {story.title || 'Untitled Story'}
+                    </CardTitle>
+                    <CardDescription className="text-sm">
+                      {story.base_idea || 'No description available'}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
+                      <span className="flex items-center space-x-1">
+                        <Users className="w-3 h-3" />
+                        <span>{story.characters.length} characters</span>
+                      </span>
+                      <span className="flex items-center space-x-1">
+                        <FileText className="w-3 h-3" />
+                        <span>{story.chapters.length} chapters</span>
+                      </span>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">
+                        Updated {new Date(story.updated_at).toLocaleDateString()}
+                      </span>
+                      <div className="flex space-x-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/story/${story.id}`);
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // TODO: Add export functionality
+                            console.log('Export story:', story.id);
+                          }}
+                        >
+                          Export
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm('Are you sure you want to delete this story? This action cannot be undone.')) {
+                              deleteStory(story.id!);
+                            }
+                          }}
+                          disabled={deletingStoryId === story.id}
+                        >
+                          {deletingStoryId === story.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Features Showcase */}
@@ -308,7 +376,11 @@ const StorytellingDashboard = () => {
               <p className="text-muted-foreground mb-4">
                 Transform your stories into beautifully designed PDFs with professional layouts and typography.
               </p>
-              <Button variant="adventure" size="sm">
+              <Button 
+                variant="adventure" 
+                size="sm"
+                onClick={() => setShowPDFDialog(true)}
+              >
                 Design PDFs
               </Button>
             </CardContent>
@@ -325,13 +397,38 @@ const StorytellingDashboard = () => {
               <p className="text-muted-foreground mb-4">
                 Get intelligent suggestions, plot development ideas, and character voice consistency checks.
               </p>
-              <Button variant="default" size="sm">
+              <Button 
+                variant="default" 
+                size="sm"
+                onClick={() => {
+                  if (stories.length > 0) {
+                    navigate(`/story/${stories[0].id}`);
+                  } else {
+                    navigate('/create-story');
+                  }
+                }}
+              >
                 Try AI Assistant
               </Button>
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* PDF Export Dialog */}
+      <PDFExportDialog
+        open={showPDFDialog}
+        onOpenChange={setShowPDFDialog}
+        characters={allCharacters}
+        relationships={[]}
+        story={stories.length > 0 ? {
+          title: 'All Stories Collection',
+          genre: 'mixed',
+          description: 'A collection of your stories',
+          chapters: []
+        } : null}
+        exportType="all"
+      />
     </div>
   );
 };

@@ -9,6 +9,7 @@ async function apiRequest<T>(
   const url = `${API_BASE_URL}${endpoint}`;
   
   const defaultOptions: RequestInit = {
+    mode: 'cors',
     headers: {
       'Content-Type': 'application/json',
       ...options.headers,
@@ -17,16 +18,28 @@ async function apiRequest<T>(
   };
 
   try {
+    console.log(`Making API request to: ${url}`);
     const response = await fetch(url, defaultOptions);
     
     if (!response.ok) {
-      const errorData = await response.text();
+      let errorData;
+      try {
+        errorData = await response.text();
+      } catch {
+        errorData = `HTTP ${response.status} ${response.statusText}`;
+      }
       throw new Error(`API Error ${response.status}: ${errorData}`);
     }
     
     return await response.json();
   } catch (error) {
     console.error(`API request failed for ${endpoint}:`, error);
+    
+    // Provide more helpful error messages
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Network error: Unable to connect to the API server. Please check your internet connection.');
+    }
+    
     throw error;
   }
 }
@@ -322,34 +335,28 @@ export interface RelationshipRequest {
 
 // Enums
 export enum StoryTheme {
-  ADVENTURE = "Adventure",
-  ROMANCE = "Romance", 
-  MYSTERY = "Mystery",
-  FANTASY = "Fantasy",
-  SCIFI = "Science Fiction",
-  HORROR = "Horror",
-  DRAMA = "Drama",
-  COMEDY = "Comedy",
-  THRILLER = "Thriller",
-  HISTORICAL = "Historical"
+  FANTASY = "fantasy",
+  MYSTERY = "mystery",
+  ADVENTURE = "adventure",
+  SCIFI = "sci-fi",
+  HORROR = "horror",
+  ROMANCE = "romance"
 }
 
 export enum ChapterStatus {
   DRAFT = "draft",
-  IN_PROGRESS = "in_progress", 
-  COMPLETED = "completed",
-  PUBLISHED = "published"
+  IN_PROGRESS = "in-progress", 
+  COMPLETED = "completed"
 }
 
 export enum PersonalityType {
   BRAVE = "brave",
+  CLEVER = "clever", 
   SHY = "shy",
-  CLEVER = "clever",
-  KIND = "kind",
-  MYSTERIOUS = "mysterious",
-  AMBITIOUS = "ambitious",
-  LOYAL = "loyal",
-  REBELLIOUS = "rebellious"
+  AGGRESSIVE = "aggressive",
+  WISE = "wise",
+  COMPASSIONATE = "compassionate",
+  CUNNING = "cunning"
 }
 
 export default {

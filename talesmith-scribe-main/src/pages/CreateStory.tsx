@@ -56,8 +56,12 @@ const CreateStory = () => {
   };
 
   const genres = [
-    'Fantasy', 'Science Fiction', 'Mystery', 'Romance', 'Thriller', 
-    'Horror', 'Adventure', 'Historical Fiction', 'Contemporary', 'Young Adult'
+    { label: 'Fantasy', value: StoryTheme.FANTASY },
+    { label: 'Mystery', value: StoryTheme.MYSTERY },
+    { label: 'Adventure', value: StoryTheme.ADVENTURE },
+    { label: 'Science Fiction', value: StoryTheme.SCIFI },
+    { label: 'Horror', value: StoryTheme.HORROR },
+    { label: 'Romance', value: StoryTheme.ROMANCE }
   ];
 
   const audiences = [
@@ -115,7 +119,7 @@ const CreateStory = () => {
       // Create story data
       const storyRequest = {
         base_idea: `${storyData.title}: ${storyData.description}. ${storyData.premise ? `Premise: ${storyData.premise}` : ''} ${storyData.setting ? `Setting: ${storyData.setting}` : ''}`,
-        theme: (storyData.genre as StoryTheme) || StoryTheme.ADVENTURE,
+        theme: storyData.genre || StoryTheme.ADVENTURE,
         characters: selectedChars
       };
 
@@ -213,8 +217,8 @@ const CreateStory = () => {
                       </SelectTrigger>
                       <SelectContent>
                         {genres.map((genre) => (
-                          <SelectItem key={genre} value={genre}>
-                            {genre}
+                          <SelectItem key={genre.value} value={genre.value}>
+                            {genre.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
