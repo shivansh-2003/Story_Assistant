@@ -5,11 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, Save, Eye, FileText, Users, Settings, Brain, Download, Network, Loader2, Plus } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
 import { PDFExportDialog } from '@/components/PDFExportDialog';
-import { storyAPI, chapterAPI, Story, Chapter, ChapterStatus, StoryTheme } from '@/lib/api';
+import { storyAPI, chapterAPI, characterAPI, Story, Chapter, ChapterStatus, StoryTheme, PersonalityType } from '@/lib/api';
 
 const StoryEditor = () => {
   const navigate = useNavigate();
@@ -24,6 +27,20 @@ const StoryEditor = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [aiProcessing, setAiProcessing] = useState(false);
+  const [showAddCharacterDialog, setShowAddCharacterDialog] = useState(false);
+  const [showIncludeCharacterDialog, setShowIncludeCharacterDialog] = useState(false);
+  const [allCharacters, setAllCharacters] = useState<any[]>([]);
+  const [newCharacter, setNewCharacter] = useState({
+    name: '',
+    age: 25,
+    role: '',
+    personality: '',
+    background: '',
+    appearance: '',
+    motivation: '',
+    archetype: '',
+    primary_trait: undefined as any
+  });
 
   // Load story and chapters on mount
   useEffect(() => {
@@ -37,13 +54,15 @@ const StoryEditor = () => {
     
     try {
       setLoading(true);
-      const [storyResponse, chaptersResponse] = await Promise.all([
+      const [storyResponse, chaptersResponse, charactersResponse] = await Promise.all([
         storyAPI.getById(id),
-        chapterAPI.getAll(id)
+        chapterAPI.getAll(id),
+        characterAPI.getAll()
       ]);
       
       setStory(storyResponse.story);
       setChapters(chaptersResponse.chapters);
+      setAllCharacters(charactersResponse.characters || []);
       
       if (chaptersResponse.chapters.length > 0) {
         setCurrentChapter(chaptersResponse.chapters[0]);
@@ -256,6 +275,104 @@ const StoryEditor = () => {
       });
     } finally {
       setAiProcessing(false);
+    }
+  };
+
+  // Character management functions
+  const addNewCharacterToStory = async () => {
+    if (!newCharacter.name?.trim() || !newCharacter.primary_trait || !story || !id) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in character name and primary trait.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const characterData = {
+        name: newCharacter.name,
+        age: newCharacter.age || 25,
+        role: newCharacter.role || 'Supporting Character',
+        personality: newCharacter.personality || '',
+        background: newCharacter.background || '',
+        appearance: newCharacter.appearance || '',
+        motivation: newCharacter.motivation || '',
+        archetype: newCharacter.archetype || 'The Explorer',
+        relationships: [],
+        primary_trait: newCharacter.primary_trait
+      };
+
+      const response = await characterAPI.create(characterData);
+      const createdCharacter = response.character;
+
+      // Add character to story
+      const updatedStory = {
+        ...story,
+        characters: [...story.characters, createdCharacter]
+      };
+      
+      await storyAPI.update(id, updatedStory);
+      setStory(updatedStory);
+      
+      // Reset form
+      setNewCharacter({
+        name: '', age: 25, role: '', personality: '', background: '',
+        appearance: '', motivation: '', archetype: '', primary_trait: undefined
+      });
+      
+      setShowAddCharacterDialog(false);
+      
+      toast({
+        title: "Character Added!",
+        description: "New character has been created and added to your story.",
+      });
+    } catch (error) {
+      console.error('Failed to add character:', error);
+      toast({
+        title: "Creation Failed",
+        description: "Failed to create character. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const includeExistingCharacter = async (characterId: string) => {
+    if (!story || !id) return;
+
+    const characterToAdd = allCharacters.find(char => char.id === characterId);
+    if (!characterToAdd) return;
+
+    // Check if character is already in story
+    if (story.characters.some(char => char.id === characterId)) {
+      toast({
+        title: "Character Already Added",
+        description: "This character is already part of your story.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const updatedStory = {
+        ...story,
+        characters: [...story.characters, characterToAdd]
+      };
+      
+      await storyAPI.update(id, updatedStory);
+      setStory(updatedStory);
+      
+      toast({
+        title: "Character Added!",
+        description: `${characterToAdd.name} has been added to your story.`,
+      });
+    } catch (error) {
+      console.error('Failed to include character:', error);
+      toast({
+        title: "Addition Failed",
+        description: "Failed to add character to story. Please try again.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -540,18 +657,25 @@ const StoryEditor = () => {
                           <Button 
                             variant="outline"
                             size="sm"
-                            onClick={() => navigate('/characters')}
+                            onClick={() => setShowAddCharacterDialog(true)}
                           >
-                            <Users className="w-4 h-4 mr-2" />
-                            Manage Characters
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add Character
                           </Button>
                           <Button 
                             variant="outline"
                             size="sm"
-                            onClick={() => setShowExportDialog(true)}
+                            onClick={() => setShowIncludeCharacterDialog(true)}
                           >
-                            <Network className="w-4 h-4 mr-2" />
-                            View Relationships
+                            <Users className="w-4 h-4 mr-2" />
+                            Include Existing
+                          </Button>
+                          <Button 
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate('/characters')}
+                          >
+                            Manage All
                           </Button>
                         </div>
                       </div>
@@ -715,6 +839,170 @@ const StoryEditor = () => {
         } : null}
         exportType="story"
       />
+
+      {/* Add Character Dialog */}
+      <Dialog open={showAddCharacterDialog} onOpenChange={setShowAddCharacterDialog}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Add New Character to Story</DialogTitle>
+            <DialogDescription>
+              Create a new character and add them directly to this story.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Name *</label>
+                <Input
+                  value={newCharacter.name}
+                  onChange={(e) => setNewCharacter(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Character name"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Age</label>
+                <Input
+                  type="number"
+                  value={newCharacter.age}
+                  onChange={(e) => setNewCharacter(prev => ({ ...prev, age: parseInt(e.target.value) || 25 }))}
+                  placeholder="25"
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Role</label>
+                <Input
+                  value={newCharacter.role}
+                  onChange={(e) => setNewCharacter(prev => ({ ...prev, role: e.target.value }))}
+                  placeholder="e.g., Protagonist, Antagonist"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Primary Trait *</label>
+                <Select
+                  value={newCharacter.primary_trait}
+                  onValueChange={(value) => setNewCharacter(prev => ({ ...prev, primary_trait: value }))}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select primary trait" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={PersonalityType.BRAVE}>Brave</SelectItem>
+                    <SelectItem value={PersonalityType.CLEVER}>Clever</SelectItem>
+                    <SelectItem value={PersonalityType.SHY}>Shy</SelectItem>
+                    <SelectItem value={PersonalityType.AGGRESSIVE}>Aggressive</SelectItem>
+                    <SelectItem value={PersonalityType.WISE}>Wise</SelectItem>
+                    <SelectItem value={PersonalityType.COMPASSIONATE}>Compassionate</SelectItem>
+                    <SelectItem value={PersonalityType.CUNNING}>Cunning</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Personality</label>
+              <Textarea
+                value={newCharacter.personality}
+                onChange={(e) => setNewCharacter(prev => ({ ...prev, personality: e.target.value }))}
+                placeholder="Describe their personality..."
+                className="mt-1"
+                rows={2}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Background</label>
+              <Textarea
+                value={newCharacter.background}
+                onChange={(e) => setNewCharacter(prev => ({ ...prev, background: e.target.value }))}
+                placeholder="Character's background story..."
+                className="mt-1"
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddCharacterDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={addNewCharacterToStory}>
+              Add to Story
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Include Existing Character Dialog */}
+      <Dialog open={showIncludeCharacterDialog} onOpenChange={setShowIncludeCharacterDialog}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Include Existing Character</DialogTitle>
+            <DialogDescription>
+              Select from your existing characters to add to this story.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {allCharacters.length === 0 ? (
+              <div className="text-center py-8">
+                <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">No characters found. Create some characters first.</p>
+                <Button 
+                  variant="outline" 
+                  className="mt-4"
+                  onClick={() => {
+                    setShowIncludeCharacterDialog(false);
+                    navigate('/characters');
+                  }}
+                >
+                  Go to Characters
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                {allCharacters
+                  .filter(char => !story?.characters.some(storyChar => storyChar.id === char.id))
+                  .map((character) => (
+                    <div 
+                      key={character.id} 
+                      className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-muted/50"
+                    >
+                      <div className="flex-1">
+                        <h4 className="font-medium">{character.name}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {character.role || 'Character'} • {character.archetype || 'Unknown Archetype'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {character.personality || character.background || 'No description'}
+                        </p>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        onClick={() => {
+                          includeExistingCharacter(character.id);
+                          setShowIncludeCharacterDialog(false);
+                        }}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  ))}
+                {allCharacters.filter(char => !story?.characters.some(storyChar => storyChar.id === char.id)).length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">All your characters are already in this story.</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowIncludeCharacterDialog(false)}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
