@@ -16,7 +16,7 @@ import { exportCharacterProfile, exportAllCharacters } from '@/utils/pdfExport';
 import { characterAPI, relationshipAPI, Character, PersonalityType, Relationship } from '@/lib/api';
 import { RelationshipManagementDialog } from '@/components/RelationshipManagementDialog';
 
-// Remove duplicate interface since it's imported from api.ts
+// Using Character interface from api.ts
 
 const Characters = () => {
   const navigate = useNavigate();
@@ -206,6 +206,10 @@ const Characters = () => {
     }
   };
 
+  const updateCharacter = (updatedCharacter: Character) => {
+    setCharacters(prev => prev.map(char => char.id === updatedCharacter.id ? updatedCharacter : char));
+  };
+
   const getArchetypeIcon = (archetype: string) => {
     switch (archetype) {
       case 'The Hero': return <Crown className="w-4 h-4" />;
@@ -217,7 +221,7 @@ const Characters = () => {
 
   const exportSingleCharacterProfile = async (character: Character) => {
     try {
-      await exportCharacterProfile(character);
+      await exportCharacterProfile(character as any);
       toast({
         title: "Export Complete",
         description: `${character.name}'s profile has been exported as PDF.`,
@@ -242,7 +246,7 @@ const Characters = () => {
     }
 
     try {
-      await exportAllCharacters(characters);
+      await exportAllCharacters(characters as any);
       toast({
         title: "Export Complete",
         description: "All character profiles have been exported as PDF.",
@@ -453,6 +457,7 @@ const Characters = () => {
                 character={character}
                 onDelete={() => deleteCharacter(character.id)}
                 onExportProfile={() => exportSingleCharacterProfile(character)}
+                onUpdate={updateCharacter}
               />
             ))}
           </div>

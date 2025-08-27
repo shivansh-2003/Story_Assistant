@@ -9,3 +9,5 @@ gtts
 python-multipart
 typing-extensions
 python-dotenv
+pytest
+requests

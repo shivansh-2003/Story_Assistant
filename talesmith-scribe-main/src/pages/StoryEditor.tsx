@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Save, Eye, FileText, Users, Settings, Brain, Download, Network, Loader2, Plus } from 'lucide-react';
+import { ArrowLeft, Save, Eye, FileText, Users, Settings, Brain, Download, Network, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
 import { PDFExportDialog } from '@/components/PDFExportDialog';
@@ -138,6 +138,7 @@ const StoryEditor = () => {
     if (!id) return;
     
     try {
+      setSaving(true);
       await chapterAPI.update(id, chapter.id!, {
         title: chapter.title,
         content: chapter.content,
@@ -156,6 +157,37 @@ const StoryEditor = () => {
       toast({
         title: "Save Failed",
         description: "Failed to save chapter. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteChapter = async (chapterId: string) => {
+    if (!id) return;
+    
+    try {
+      await chapterAPI.delete(id, chapterId);
+      
+      // Remove from local state
+      setChapters(prev => prev.filter(ch => ch.id !== chapterId));
+      
+      // If the deleted chapter was the current one, select the first remaining chapter
+      if (currentChapter?.id === chapterId) {
+        const remainingChapters = chapters.filter(ch => ch.id !== chapterId);
+        setCurrentChapter(remainingChapters.length > 0 ? remainingChapters[0] : null);
+      }
+      
+      toast({
+        title: "Chapter Deleted",
+        description: "Chapter has been deleted successfully.",
+      });
+    } catch (error) {
+      console.error('Failed to delete chapter:', error);
+      toast({
+        title: "Delete Failed",
+        description: "Failed to delete chapter. Please try again.",
         variant: "destructive"
       });
     }
@@ -202,8 +234,7 @@ const StoryEditor = () => {
     const wordCount = content.trim().split(/\s+/).length;
     const updatedChapter = { 
       ...currentChapter, 
-      content, 
-      word_count: content.trim() ? wordCount : 0 
+      content
     };
     
     setCurrentChapter(updatedChapter);
@@ -254,7 +285,16 @@ const StoryEditor = () => {
       const newContent = currentChapter.content + '\n\n' + (response.new_segment?.content || '');
       const updatedChapter = { ...currentChapter, content: newContent };
       
+      // Save the updated chapter
+      await chapterAPI.update(id, currentChapter.id!, {
+        title: updatedChapter.title,
+        content: updatedChapter.content,
+        status: updatedChapter.status
+      });
+      
+      // Update local state
       setCurrentChapter(updatedChapter);
+      setChapters(prev => prev.map(ch => ch.id === updatedChapter.id ? updatedChapter : ch));
       
       toast({
         title: "Story Continued!",
@@ -481,28 +521,46 @@ const StoryEditor = () => {
                   chapters.map((chapter) => (
                     <div
                       key={chapter.id}
-                      className={`p-3 rounded-lg cursor-pointer transition-all ${
+                      className={`p-3 rounded-lg transition-all ${
                         currentChapter?.id === chapter.id 
                           ? 'bg-primary/20 border border-primary/30' 
                           : 'bg-muted/30 hover:bg-muted/50'
                       }`}
-                      onClick={() => setCurrentChapter(chapter)}
                     >
-                      <h4 className="font-medium text-sm">{chapter.title}</h4>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-xs text-muted-foreground">
-                          {chapter.word_count || 0} words
-                        </span>
-                        <Badge 
-                          variant="outline" 
-                          className={`text-xs ${
-                            chapter.status === ChapterStatus.COMPLETED ? 'border-secondary/30 text-secondary' :
-                            chapter.status === ChapterStatus.IN_PROGRESS ? 'border-primary/30 text-primary' :
-                            'border-muted-foreground/30'
-                          }`}
+                      <div 
+                        className="cursor-pointer"
+                        onClick={() => setCurrentChapter(chapter)}
+                      >
+                        <h4 className="font-medium text-sm">{chapter.title}</h4>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-xs text-muted-foreground">
+                            {chapter.content.trim().split(/\s+/).length || 0} words
+                          </span>
+                          <Badge 
+                            variant="outline" 
+                            className={`text-xs ${
+                              chapter.status === ChapterStatus.COMPLETED ? 'border-secondary/30 text-secondary' :
+                              chapter.status === ChapterStatus.IN_PROGRESS ? 'border-primary/30 text-primary' :
+                              'border-muted-foreground/30'
+                            }`}
+                          >
+                            {chapter.status}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="flex justify-end mt-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteChapter(chapter.id);
+                          }}
+                          className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                          title="Delete Chapter"
                         >
-                          {chapter.status}
-                        </Badge>
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
                       </div>
                     </div>
                   ))
@@ -561,7 +619,7 @@ const StoryEditor = () => {
                             placeholder="Chapter Title"
                           />
                           <p className="text-sm text-muted-foreground mt-1">
-                            {currentChapter.word_count || 0} words
+                            {currentChapter.content.trim().split(/\s+/).length || 0} words
                           </p>
                         </div>
                         <div className="flex items-center space-x-2">
@@ -720,7 +778,7 @@ const StoryEditor = () => {
                         </div>
                       ) : (
                         <div className="space-y-4">
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <Button 
                               variant="outline" 
                               className="h-auto p-4 text-left"
@@ -747,18 +805,6 @@ const StoryEditor = () => {
                                   Generate Content
                                 </h4>
                                 <p className="text-sm text-muted-foreground">Create AI-generated chapter content</p>
-                              </div>
-                            </Button>
-                            <Button variant="outline" className="h-auto p-4 text-left" disabled>
-                              <div>
-                                <h4 className="font-medium">Improve Dialogue</h4>
-                                <p className="text-sm text-muted-foreground">Enhance character conversations (Coming Soon)</p>
-                              </div>
-                            </Button>
-                            <Button variant="outline" className="h-auto p-4 text-left" disabled>
-                              <div>
-                                <h4 className="font-medium">Character Voice</h4>
-                                <p className="text-sm text-muted-foreground">Maintain consistent character voices (Coming Soon)</p>
                               </div>
                             </Button>
                           </div>
@@ -817,11 +863,28 @@ const StoryEditor = () => {
                     </div>
                     <div>
                       <label className="text-sm font-medium">Status</label>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <Badge variant={story?.is_draft ? "outline" : "secondary"}>
-                          {story?.is_draft ? 'Draft' : story?.is_completed ? 'Completed' : 'In Progress'}
-                        </Badge>
-                      </div>
+                      <Select 
+                        value={story?.is_draft ? 'draft' : story?.is_completed ? 'completed' : 'in-progress'}
+                        onValueChange={(value) => {
+                          if (story) {
+                            const updatedStory = {
+                              ...story,
+                              is_draft: value === 'draft',
+                              is_completed: value === 'completed'
+                            };
+                            setStory(updatedStory);
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="draft">Draft</SelectItem>
+                          <SelectItem value="in-progress">In Progress</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </CardContent>
                 </Card>
@@ -835,11 +898,11 @@ const StoryEditor = () => {
       <PDFExportDialog
         open={showExportDialog}
         onOpenChange={setShowExportDialog}
-        characters={story?.characters || []}
+        characters={story?.characters || [] as any}
         relationships={relationships.filter(rel => 
           story?.characters.some(char => char.id === rel.character1_id) &&
           story?.characters.some(char => char.id === rel.character2_id)
-        ) || []}
+        ) || [] as any}
         story={story ? {
           title: story.title || 'Untitled Story',
           genre: story.theme,
@@ -848,7 +911,7 @@ const StoryEditor = () => {
             id: ch.id!,
             title: ch.title,
             content: ch.content,
-            wordCount: ch.word_count || 0,
+            wordCount: ch.content.trim().split(/\s+/).length || 0,
             status: ch.status
           }))
         } : null}

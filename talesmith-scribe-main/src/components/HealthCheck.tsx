@@ -12,14 +12,11 @@ const HealthCheck = () => {
   const checkHealth = async () => {
     setStatus('loading');
     try {
-      console.log('Testing API connection...');
       const response = await healthCheck();
-      console.log('API response:', response);
       setStatus('success');
       setMessage(response.message);
       setLastChecked(new Date());
     } catch (error) {
-      console.error('Health check failed:', error);
       setStatus('error');
       setMessage(error instanceof Error ? error.message : 'Failed to connect to API');
       setLastChecked(new Date());
@@ -75,17 +72,6 @@ const HealthCheck = () => {
           >
             <RefreshCw className="w-3 h-3 mr-1" />
             Check
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              console.log('Running full API test...');
-              const { testApiConnection } = await import('@/utils/apiTest');
-              await testApiConnection();
-            }}
-          >
-            Test All
           </Button>
         </div>
       </div>

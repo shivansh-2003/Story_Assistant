@@ -7,6 +7,14 @@ export default defineConfig({
   server: {
     host: "::",
     port: 8080,
+    proxy: {
+      '/api': {
+        target: 'https://story-assistant.onrender.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+        secure: true,
+      }
+    }
   },
   plugins: [react()],
   resolve: {
@@ -16,6 +24,6 @@ export default defineConfig({
   },
   define: {
     // Ensure environment variables are available
-    'import.meta.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || 'https://story-assistant.onrender.com'),
+    'import.meta.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || '/api'),
   },
 });

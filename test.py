@@ -1,5 +1,3 @@
-
-
 import pytest
 import requests
 import json
@@ -8,7 +6,7 @@ from typing import Dict, Any
 import base64
 
 class APITester:
-    def __init__(self, base_url: str = "http://localhost:8000"):
+    def __init__(self, base_url: str = "https://story-assistant.onrender.com"):
         self.base_url = base_url
         self.story_id = None
         self.segment_ids = []

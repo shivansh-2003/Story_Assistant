@@ -3,9 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, BookOpen, Users, FileText, Palette, Brain, Wand2, Star, Heart, Sword, Crown, Loader2, Trash2 } from 'lucide-react';
+import { Sparkles, BookOpen, Users, FileText, Palette, Brain, Wand2, Star, Heart, Sword, Crown, Loader2, Trash2, Download } from 'lucide-react';
 import HealthCheck from '@/components/HealthCheck';
-import testApiConnection from '@/utils/apiTest';
 import { storyAPI, Story } from '@/lib/api';
 
 interface StoryProject {
@@ -105,9 +104,9 @@ const StorytellingDashboard = () => {
                 <Button 
                   variant="ghost" 
                   className="text-foreground hover:text-primary"
-                  onClick={() => navigate('/')}
+                  onClick={() => navigate('/stories')}
                 >
-                  Dashboard
+                  Stories
                 </Button>
                 <Button 
                   variant="ghost" 
@@ -163,6 +162,15 @@ const StorytellingDashboard = () => {
                 variant="outline" 
                 size="lg" 
                 className="backdrop-blur-sm"
+                onClick={() => navigate('/stories')}
+              >
+                <BookOpen className="w-5 h-5 mr-2" />
+                View Stories
+              </Button>
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="backdrop-blur-sm"
                 onClick={() => navigate('/characters')}
               >
                 <Users className="w-5 h-5 mr-2" />
@@ -178,7 +186,7 @@ const StorytellingDashboard = () => {
         {/* API Health Check */}
         <HealthCheck />
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-12">
           <Card 
             className="bg-card/50 backdrop-blur-sm border-primary/20 hover:shadow-elegant transition-all duration-300 hover:scale-105 cursor-pointer"
             onClick={() => navigate('/create-story')}
@@ -201,9 +209,20 @@ const StorytellingDashboard = () => {
             </CardContent>
           </Card>
           
-          <Card className="bg-card/50 backdrop-blur-sm border-accent/20 hover:shadow-mystical transition-all duration-300 hover:scale-105">
+          <Card 
+            className="bg-card/50 backdrop-blur-sm border-accent/20 hover:shadow-mystical transition-all duration-300 hover:scale-105 cursor-pointer"
+            onClick={() => navigate('/stories')}
+          >
             <CardContent className="p-6 text-center">
-              <FileText className="w-12 h-12 text-accent mx-auto mb-4" />
+              <BookOpen className="w-12 h-12 text-accent mx-auto mb-4" />
+              <h3 className="font-semibold font-sans">All Stories</h3>
+              <p className="text-sm text-muted-foreground">View and manage your stories</p>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-card/50 backdrop-blur-sm border-secondary/20 hover:shadow-mystical transition-all duration-300 hover:scale-105">
+            <CardContent className="p-6 text-center">
+              <Download className="w-12 h-12 text-secondary mx-auto mb-4" />
               <h3 className="font-semibold font-sans">Export Stories</h3>
               <p className="text-sm text-muted-foreground">Professional PDF exports</p>
             </CardContent>
@@ -222,7 +241,7 @@ const StorytellingDashboard = () => {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-3xl font-serif font-bold text-foreground">Your Stories</h2>
-            <Button variant="secondary" size="lg">
+            <Button variant="secondary" size="lg" onClick={() => navigate('/stories')}>
               <BookOpen className="w-4 h-4 mr-2" />
               View All
             </Button>
