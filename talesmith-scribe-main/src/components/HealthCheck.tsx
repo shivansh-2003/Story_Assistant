@@ -1,81 +1,125 @@
-import React, { useState, useEffect } from 'react';
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { CheckCircle, XCircle, Loader2, RefreshCw } from 'lucide-react';
-import { healthCheck } from '@/lib/api';
+import React, { useState } from 'react';
+import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import { Button } from './ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Badge } from './ui/badge';
+import { healthCheck } from '../lib/api';
 
 const HealthCheck = () => {
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [status, setStatus] = useState<'idle' | 'checking' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
-  const [lastChecked, setLastChecked] = useState<Date | null>(null);
+  const [error, setError] = useState('');
+  const [apiUrl, setApiUrl] = useState(import.meta.env.VITE_API_URL || 'https://story-assistant.onrender.com');
 
   const checkHealth = async () => {
-    setStatus('loading');
+    setStatus('checking');
+    setMessage('');
+    setError('');
+    
     try {
-      const response = await healthCheck();
+      console.log('Checking API health...');
+      console.log('API URL:', apiUrl);
+      console.log('Environment variables:', {
+        VITE_API_URL: import.meta.env.VITE_API_URL,
+        NODE_ENV: import.meta.env.NODE_ENV,
+        MODE: import.meta.env.MODE
+      });
+      
+      const result = await healthCheck();
       setStatus('success');
-      setMessage(response.message);
-      setLastChecked(new Date());
-    } catch (error) {
+      setMessage(result.message);
+    } catch (err: any) {
       setStatus('error');
-      setMessage(error instanceof Error ? error.message : 'Failed to connect to API');
-      setLastChecked(new Date());
+      setError(err.message || 'Unknown error occurred');
+      console.error('Health check failed:', err);
     }
   };
 
-  useEffect(() => {
-    checkHealth();
-  }, []);
-
   const getStatusIcon = () => {
     switch (status) {
-      case 'loading':
-        return <Loader2 className="w-4 h-4 animate-spin" />;
+      case 'checking':
+        return '⏳';
       case 'success':
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
+        return '✅';
       case 'error':
-        return <XCircle className="w-4 h-4 text-red-500" />;
+        return '❌';
+      default:
+        return '🔍';
     }
   };
 
   const getAlertVariant = () => {
     switch (status) {
-      case 'loading':
-        return 'default';
       case 'success':
         return 'default';
       case 'error':
         return 'destructive';
+      default:
+        return 'secondary';
     }
   };
 
   return (
-    <Alert variant={getAlertVariant()} className="mb-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          {getStatusIcon()}
-          <AlertDescription>
-            <strong>API Status:</strong> {message || 'Checking connection...'}
-            {lastChecked && (
-              <span className="text-xs text-muted-foreground ml-2">
-                (Last checked: {lastChecked.toLocaleTimeString()})
-              </span>
-            )}
-          </AlertDescription>
+    <Card className="w-full max-w-md">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          {getStatusIcon()} API Health Check
+        </CardTitle>
+        <CardDescription>
+          Test connection to the Story Assistant backend
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <div className="text-sm font-medium">API URL:</div>
+          <Badge variant="outline" className="font-mono text-xs">
+            {apiUrl}
+          </Badge>
         </div>
-        <div className="flex space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={checkHealth}
-            disabled={status === 'loading'}
-          >
-            <RefreshCw className="w-3 h-3 mr-1" />
-            Check
-          </Button>
+        
+        <div className="space-y-2">
+          <div className="text-sm font-medium">Environment:</div>
+          <div className="text-xs space-y-1">
+            <div>NODE_ENV: {import.meta.env.NODE_ENV}</div>
+            <div>MODE: {import.meta.env.MODE}</div>
+            <div>VITE_API_URL: {import.meta.env.VITE_API_URL || 'Not set'}</div>
+          </div>
         </div>
-      </div>
-    </Alert>
+
+        <Button 
+          onClick={checkHealth} 
+          disabled={status === 'checking'}
+          className="w-full"
+        >
+          {status === 'checking' ? 'Checking...' : 'Check API Health'}
+        </Button>
+
+        {status === 'success' && (
+          <Alert variant={getAlertVariant()}>
+            <AlertTitle>API is Healthy</AlertTitle>
+            <AlertDescription>{message}</AlertDescription>
+          </Alert>
+        )}
+
+        {status === 'error' && (
+          <Alert variant={getAlertVariant()}>
+            <AlertTitle>API Connection Failed</AlertTitle>
+            <AlertDescription>
+              {error}
+              <div className="mt-2 text-xs">
+                <strong>Troubleshooting tips:</strong>
+                <ul className="list-disc list-inside mt-1 space-y-1">
+                  <li>Check if the API server is running</li>
+                  <li>Verify the API URL is correct</li>
+                  <li>Check CORS configuration on the server</li>
+                  <li>Ensure environment variables are set in Vercel</li>
+                </ul>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 

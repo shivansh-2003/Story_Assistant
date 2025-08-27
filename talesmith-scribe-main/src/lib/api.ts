@@ -1,6 +1,14 @@
 // API configuration and client for connecting to the Story Assistant backend
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://story-assistant.onrender.com';
 
+// Debug logging for environment variables
+console.log('Environment check:', {
+  VITE_API_URL: import.meta.env.VITE_API_URL,
+  NODE_ENV: import.meta.env.NODE_ENV,
+  MODE: import.meta.env.MODE,
+  API_BASE_URL
+});
+
 // Request helper function
 async function apiRequest<T>(
   endpoint: string,
@@ -12,6 +20,7 @@ async function apiRequest<T>(
     mode: 'cors',
     headers: {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
       ...options.headers,
     },
     ...options,
@@ -37,7 +46,7 @@ async function apiRequest<T>(
     
     // Provide more helpful error messages
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error('Network error: Unable to connect to the API server. Please check your internet connection.');
+      throw new Error('Network error: Unable to connect to the API server. Please check your internet connection and ensure the API server is running.');
     }
     
     throw error;

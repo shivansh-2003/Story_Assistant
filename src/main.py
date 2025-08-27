@@ -88,7 +88,13 @@ app = FastAPI(
 # Add middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if settings.debug else ["https://yourdomain.com"],
+    allow_origins=["*"] if settings.debug else [
+        "https://*.vercel.app",  # All Vercel domains
+        "https://*.vercel.com",  # Vercel custom domains
+        "https://story-assistant.onrender.com",  # Your API domain
+        "http://localhost:8080",  # Local development
+        "http://localhost:3000",  # Local development
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

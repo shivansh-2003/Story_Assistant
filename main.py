@@ -83,6 +83,8 @@ app.add_middleware(
         "http://127.0.0.1:5173",  # Vite default dev server
         "http://10.194.96.253:8080",  # Your network IP
         "https://story-assistant.onrender.com",  # Your deployed frontend (if any)
+        "https://*.vercel.app",  # All Vercel domains
+        "https://*.vercel.com",  # Vercel custom domains
         "*",  # Allow all origins for development
     ],
     allow_credentials=True,
